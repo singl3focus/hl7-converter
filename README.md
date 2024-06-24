@@ -65,7 +65,7 @@ func main() {
 - all keys in Json nust be string
 - if you specify multiple values in array, they must be separated by a comma ***(,)***
 - in case if linked tags has more than one match will be choose first one 
-- field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of ""
+- field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of all separators
 
 ### Structure
 - First comes the name of the config(*example: "device_protocol"*), then the delimiter fields and an array of tags
