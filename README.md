@@ -51,9 +51,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	...your using msg
 }
 ```
-**Remember, this is just an example of how you can use it, but it can also be deployed as a server or something else.**
+**Remember, this is just an example of how you can use it, but it can differently used or something else.**
 
 
 ## Config file 
@@ -63,6 +65,7 @@ func main() {
 - all keys in Json nust be string
 - if you specify multiple values in array, they must be separated by a comma ***(,)***
 - in case if linked tags has more than one match will be choose first one 
+- field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of ""
 
 ### Structure
 - First comes the name of the config(*example: "device_protocol"*), then the delimiter fields and an array of tags

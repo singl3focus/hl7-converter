@@ -3,17 +3,20 @@ package hl7converter
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 )
 
+
 // ConvertMsg
+//
+// WARNING: message cannot contain a field separator, otherwise the conversion will be incorrect
+// NOTE: split logic of separating and remain only logic of 'for'
 func ConvertMsg(input, output *Modification, msg []byte) ([]byte, error) {
 	msgBlocks := strings.Split(string(msg), input.LineSeparator)
 	
 	var res []string
 	for _, row := range msgBlocks {
-		rowFields := strings.Split(row, input.FieldSeparator) // uneffective
+		rowFields := strings.Split(row, input.FieldSeparator)
 		tag := rowFields[0]
 		if len(tag) >= len(row) {
 			return nil, fmt.Errorf("identify msg has been unsuccessful") 
@@ -24,7 +27,8 @@ func ConvertMsg(input, output *Modification, msg []byte) ([]byte, error) {
 			return nil, fmt.Errorf("tag %s not found in input modification %v", tag, input) 
 		}
 
-		var matchingTag string
+
+		var matchingTag string // Linked tags hasn't property of json "omitempty"
 		for _, linkedTag := range tagInfo.Linked {
 			_, ok := output.Tags[linkedTag]
 			if ok {
@@ -35,6 +39,8 @@ func ConvertMsg(input, output *Modification, msg []byte) ([]byte, error) {
 
 		if matchingTag == "" {
 			// return nil, fmt.Errorf("linked tag in tag %s not found in output modification %v", tag, output)
+
+			// NEED NOTIFICATION THAT MSG WAS SKIPPED
 			continue 
 		}
 
@@ -53,14 +59,32 @@ func ConvertMsg(input, output *Modification, msg []byte) ([]byte, error) {
 }
 
 
-func assembleOutputRowMsg(input, output *Modification, rowFields []string, inputTag, matchingTag string) (string, error) {
-	fieldNumber := output.Tags[matchingTag].FieldsNumber
+// assembleOutputRowMsg
+//
+//
+func assembleOutputRowMsg(input, output *Modification, rowFields []string, inputTag, matchingTag string) (string, error) {	
 	outputFields := output.Tags[matchingTag].Fields
 
-	tempLine := make([]string, fieldNumber) // temp slice was filled by default value:""
+	tempLine := make([]string, output.Tags[matchingTag].FieldsNumber) // temp slice was initially filled by default value:""
 	tempLine[0] = matchingTag // first position is always placed by Tag 
 
 	for fieldName, fieldInfo := range outputFields { // go through the fields of the output structure
+
+		if fieldInfo.ComponentsNumber > 0 { // min. count of components is 2
+			if fieldInfo.ComponentsNumber == 1 {
+				return "", fmt.Errorf("Commponent count can be equal to 0 or more than 1, else it's field hasn't have components")
+			} else {
+				outputPosition := int(fieldInfo.Position) - 1 
+				if int(outputPosition) == 0 { // field outputPosition cannot be 0, because 0 position is Tag
+					return "", fmt.Errorf("incorrect position %d by fieldName %s", outputPosition, fieldName)
+				}
+
+				if tempLine[outputPosition] == "" { // we must save previous data
+					tempLine[outputPosition] = strings.Repeat(output.ComponentSeparator, fieldInfo.ComponentsNumber - 1) // count separator is ComponentsNumber - 1
+				} 
+			}
+		}
+
 		err := setFieldInOutputRow(input, output, fieldName, &fieldInfo, tempLine, rowFields, inputTag)
 		if err != nil {
 			return "", err
@@ -73,75 +97,73 @@ func assembleOutputRowMsg(input, output *Modification, rowFields []string, input
 	return res, nil 
 } 
 
+
 // setFieldInOutputRow
 //
-// WARNING: Now we haven't relisation fill of output float field 
+//
 func setFieldInOutputRow(in, out *Modification, fN string, fI *Field, tL, rF []string, inT string) error {
 	inputFields := in.Tags[inT].Fields
 
-	// WE MUST SET ONE FIELD, BUT WE SET ALL, because we received a pointer to tempLine that is gradually being filled
-	tempFloatPostiton := make(map[float64]string) // every match position will be collect to one string value and added to Line
-
 	outputPosition := fI.Position - 1 
-	if int(outputPosition) == 0 {
+	if int(outputPosition) == 0 { // field outputPosition cannot be 0, because 0 position is Tag
 		return fmt.Errorf("incorrect position %f by fieldName %s", outputPosition, fN)
 	}
 
 	LinkedFields := fI.Linked // get list of avalible field links
-	if len(LinkedFields) <= 1 { // If count linked fields is 1 
+
+	if len(LinkedFields) <= 1 { // If count linked fields less than or equal to 1 
+
 		if len(LinkedFields) == 0 { // Linked Fields not specified
-			err := setDefaultValueToField(in, fN, fI, tL, tempFloatPostiton)
-			if err != nil { return err }
+			err := setDefaultValueToField(in, out, fN, fI, tL)
+			if err != nil {
+				return err
+			}
+
 		} else {
 			rowInfo, ok := inputFields[LinkedFields[0]]
+
 			if !ok { // if we have not found the field, we set the default value
-				err := setDefaultValueToField(in, fN, fI, tL, tempFloatPostiton)
-				if err != nil { return err }
+				err := setDefaultValueToField(in, out, fN, fI, tL)
+				if err != nil {
+					return err
+				}
+
 			} else { // if we have found the field, we set it
-				err := setValueToField(in, fI, &rowInfo, tL, rF, tempFloatPostiton)
+				err := setValueToField(in, out, fI, &rowInfo, tL, rF)
+
 				if err != nil { // if set value has been unsecseful try set default
-					err := setDefaultValueToField(in, fN, fI, tL, tempFloatPostiton)
-					if err != nil { return err }
+					err := setDefaultValueToField(in, out, fN, fI, tL)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
 
 	} else { // If count linked fields is more than 1
-		err := setValueToFieldWithMoreLinks(in, out, fI, inputFields, tL, rF, tempFloatPostiton)
-		if err != nil { return err }
+		err := setValueToFieldWithMoreLinks(in, out, fI, inputFields, tL, rF)
+		if err != nil {
+			return err
+		}
 	}
-
-	// Join tempFloatPostiton
-	allKeys := make([]float64, 0, 10)
-	for outputFloatPos, _ := range tempFloatPostiton { 
-		allKeys = append(allKeys, outputFloatPos)
-	}
-	sort.Float64s(allKeys) // sorted float keys(position) [1.1, 1.2, 1.8]
-	
-	// line := tempFloatPostiton[allKeys[0]] // get first value of float positions
-	// for index, numbFloatPos := range allKeys[1:] {
-	// 	if int(numbFloatPos) == int(allKeys[index-1]) { // check that 1.1 and 1.8 belong to the same position
-	// 		line += output.ComponentSeparator
-	// 		line += tempFloatPostiton[numbFloatPos]
-	// 	} else {
-	// 		line = ""
-	// 		line = ""
-	// 	}
-	// }
 
 	return nil
 }
 
-func setDefaultValueToField(in *Modification, fN string, fI *Field, tL []string, tFP map[float64]string) error {
+
+// setDefaultValueToField
+//
+//
+func setDefaultValueToField(in, out *Modification, fN string, fI *Field, tL []string) error {
 	outputPosition := fI.Position - 1 // cannot be equal to 0
 	
 	defaultValue := fI.DefaultValue
 	if defaultValue != "" {
+		pos := int(outputPosition) // integer representation of a number
 		if isInt(outputPosition) { // Check that postion int or float
-			pos := int(outputPosition)
 			tL[pos] = defaultValue
 		} else {
-			tFP[outputPosition] = defaultValue
+			setFieldComponent(out, tL, pos, getTenth(outputPosition), defaultValue)
 		}
 	} else {
 		return fmt.Errorf("fieldName %s not found in input modification %v and default value is not specified", fN, in)
@@ -150,10 +172,13 @@ func setDefaultValueToField(in *Modification, fN string, fI *Field, tL []string,
 	return nil
 }
 
+
 // setValueToField
-func setValueToField(in *Modification, fI, rI *Field, tL, rF []string, tFP map[float64]string) error {
+//
+//
+func setValueToField(in, out  *Modification, fI, rI *Field, tL, rF []string) error {
 	outputPosition := fI.Position - 1 // cannot be equal to 0
-	inputPosition := rI.Position - 1 
+	inputPosition := rI.Position - 1 // was there a check?????
 
 	// Check that postion int or float
 	if isInt(inputPosition) && isInt(outputPosition) { // if inputPosition and outputPosition Int
@@ -165,7 +190,8 @@ func setValueToField(in *Modification, fI, rI *Field, tL, rF []string, tFP map[f
 	} else if isInt(inputPosition) { // if inputPosition Int
 		posInp := int(inputPosition)
 
-		tFP[outputPosition] = rF[posInp]	
+
+		setFieldComponent(out, tL, int(outputPosition), getTenth(outputPosition), rF[posInp])
 
 	} else if isInt(outputPosition) { // if outputPosition Int
 		posInp := int(inputPosition) // round to less number (3.8 -> 3)
@@ -177,7 +203,7 @@ func setValueToField(in *Modification, fI, rI *Field, tL, rF []string, tFP map[f
 			return err
 		}
 
-		rF[posOu] = val
+		tL[posOu] = val
 
 	} else { // if inputPosition and outputPosition NOT Int
 		posInp := int(inputPosition) // round to less number (11.2 -> 11)
@@ -188,14 +214,15 @@ func setValueToField(in *Modification, fI, rI *Field, tL, rF []string, tFP map[f
 			return err
 		}
 
-		tFP[outputPosition] = val
+		setFieldComponent(out, tL, int(outputPosition), getTenth(outputPosition), val)
 	}
 
 	return nil
 }
 
+
 // setValueToFieldWithMoreLinks
-func setValueToFieldWithMoreLinks(in, out *Modification, fI *Field, iF map[string]Field,  tL, rF []string, tFP map[float64]string) error {
+func setValueToFieldWithMoreLinks(in, out *Modification, fI *Field, iF map[string]Field,  tL, rF []string) error {
 	outputPosition := fI.Position - 1 // cannot be equal to 0
 	linkedFields := fI.Linked
 	lenLinked := len(linkedFields)
@@ -203,14 +230,15 @@ func setValueToFieldWithMoreLinks(in, out *Modification, fI *Field, iF map[strin
 	if isInt(outputPosition) {
 		line := ""
 		for i, inputField := range linkedFields { // Len Linked fields more than 1
-			inpPos := iF[inputField].Position
+			inpPos := iF[inputField].Position // only for check
 
-			posInp := int(iF[inputField].Position) - 1 // BE CAREFUL WITH Position
+			inpPosInt := int(iF[inputField].Position) - 1 // represantation of index, for putting
 			if isInt(inpPos) {
-				line += rF[posInp]
+				line += rF[inpPosInt]
+
 			} else {
 				subposInp := getTenth(inpPos)
-				val, err := getFieldComponent(in, rF, posInp, subposInp)
+				val, err := getFieldComponent(in, rF, inpPosInt, subposInp)
 				if err != nil || val == "" {
 					return err
 				}
@@ -219,29 +247,56 @@ func setValueToFieldWithMoreLinks(in, out *Modification, fI *Field, iF map[strin
 			}
 			
 
-			if i != (lenLinked - 1) {
+			if i != (lenLinked - 1) { // The line should not end by separator
 				line += out.ComponentSeparator
 			}  
 		}
 
-		posOu := int(outputPosition)
-		tL[posOu] = line
+		tL[int(outputPosition)] = line
 
 	} else {
 		line := ""
-		for i, inputField := range linkedFields[1:] { // Len Linked fields more than 1
-			posInp := int(iF[inputField].Position) // Don't work with float linked 
-			line += rF[posInp]
-			if i != (lenLinked - 1) {
+		for i, inputField := range linkedFields { // Len Linked fields more than 1
+			inpPos := iF[inputField].Position // only for check
+
+			inpPosInt := int(iF[inputField].Position) - 1 // represantation of index, for putting
+			if isInt(inpPos) {
+				line += rF[inpPosInt]
+
+			} else {
+				subposInp := getTenth(inpPos)
+				val, err := getFieldComponent(in, rF, inpPosInt, subposInp)
+				if err != nil || val == "" {
+					return err
+				}
+
+				line += val
+			}
+			
+
+			if i != (lenLinked - 1) { // The line should not end by separator
 				line += out.ComponentSeparator
 			}  
 		}
 
-		tFP[outputPosition] = line
+		setFieldComponent(out, tL, int(outputPosition), getTenth(outputPosition), line)
 	}
 
 	return nil
 }
+
+
+// setFieldComponent
+//
+// NOTE: be careful with subpos
+func setFieldComponent(out *Modification, tL []string, pos, subPos int, value string) {
+	fieldComponents := strings.Split(tL[pos], out.ComponentSeparator)
+	fieldComponents[subPos - 1] = value
+
+	res := strings.Join(fieldComponents, out.ComponentSeparator)
+	tL[pos] = res
+}
+
 
 // getFieldComponent
 func getFieldComponent(in *Modification, rF []string, posInp, subposInp int) (string, error) {
@@ -252,6 +307,8 @@ func getFieldComponent(in *Modification, rF []string, posInp, subposInp int) (st
 
 	return val, nil
 }
+
+
 
 // isInt return that number(float64) is Int or not
 func isInt(numb float64) bool {

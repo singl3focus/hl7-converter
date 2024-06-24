@@ -21,9 +21,10 @@ type Tag struct {
 }
 
 type Field struct{
-	DefaultValue string `json:"default_value"`
-	Position 	 float64 `json:"position"`
-	Linked 		 []string `json:"linked_fields"`
+	DefaultValue string `json:"default_value,omitempty"` 		// default_value can be specifed or not 
+	Position 	 float64 `json:"position"` 						// MANDATORY: position is a mandatory argument
+	Linked 		 []string `json:"linked_fields,omitempty"` 		// linked_fields can be specifed or not 
+	ComponentsNumber int `json:"components_number,omitempty"` 	// components_number can be specifed or not 
 }
 
 // _________________________________________
