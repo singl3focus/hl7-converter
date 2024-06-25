@@ -2,9 +2,6 @@ package hl7converter_test
 
 import (
 	"bytes"
-	"log"
-	"os"
-	"path/filepath"
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter"
@@ -21,90 +18,84 @@ var (
 	configFilename        = "config.json"
 	configInputBlockType  = "hl7_astm_hbl"
 	configOutputBlockType = "hl7_mindray_hbl"
+
+	configInputBlockType2 = "cl1200_hl7"
+	configOutputBlockType2 = "access"
 )
 
-var inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
-	"P|1||||^||||||||||||||||||||||||||||\n" +
-	"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
-	"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
-	"L|1|N")
-
-
-// NOTE: Sequence number skipped
-//
-// ERROR: if specifie some other tag in input linked tags, but ouput tag specified to other tag an error occurs
-// Because - HARDCODE and when we set result, WE depend on the input tag as well
-var outputMsgHBL = []byte("MSH|^~\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|" + CR +
-	"OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" + CR + "OBX|||Urina4~screening~tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||")
-
-
 var (
-	inWithFloatPos = ""
-	outWithFloatPos = ""
+	inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
+		"P|1||||^||||||||||||||||||||||||||||\n" +
+		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
+		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
+		"L|1|N")
 
-	inWithSomeLinked = ""
-	outWithSomeLinked = ""
+	outputMsgHBL = []byte("MSH|^~\\&|Manufacturer|Model|||20220327||ORU~R01||P|2.3.1||||||ASCII|" + CR +
+		"PID||142212|||||||||||||||||||||||||||" + CR + "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" +
+		CR + "OBX|||Urina4~screening~tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||")
 
-	inWithSomeLinkedAndFloatPos = ""
-	outWithSomeLinkedAndFloatPos = ""
+	inputNewMsgHBL = []byte("MSH|~\\&|Manufacturer|Model|||20220327||ORU~R01||P|2.3.1||||||ASCII|" + CR +
+	"PID||142212|||||||||||||||||||||||||||" + CR + "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" +
+	CR + "OBX|||Urina4~screening~tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||")	
+
+	outputNewMsgHBL = []byte("H|\\^&||||||||||P||20220327\n" +
+		"P||||||||||||||||||||||||||||||\n" +
+		"O||142212|||||||||||||URI^^|||||||||||||||\n" + 
+		"R||^^^Urina4~screening~tempo-analisi-minuti^Urina4~screening~tempo-analisi-minuti^^Urina4~screening~tempo-analisi-minuti|180|||||F|||||")
+
+	inMsgHL7CL1200 = []byte("MSH|^~\\&|||||20120508150259||QRY^Q02|7|P|2.3.1||||||ASCII|||\n" + 
+		"PID|1|1001|||Mike||19851001095133|M|||keshi|||||||||||||||beizhu|||||\n" +
+		"OBR|1|12345678|10|^|Y|20120405193926|20120405193914|20120405193914|||||linchuangzhenduan|20120405193914|serum|lincyisheng|keshi||||||||3|||||||||||||||||||||||\n" +
+		"OBX|1|NM|2|TBil|100| umol/L |-|N|||F||100|20120405194245||yishen|0|\n" + 
+		"OBX|2|NM|5|ALT|98.2| umol/L |-|N|||F||98.2|20120405194403||yishen|0|\n" +
+		"OBX|3|NM|6|AST|26.4| umol/L |-|N|||F||26.4|||yishen||")
 )
 
 
 func TestConvertMsg(t *testing.T) {
-	wd, err := os.Getwd()
+	ready, err := hl7converter.FullConvertMsg(configFilename, configInputBlockType, configOutputBlockType, inputMsgHBL)
 	if err != nil {
-		t.Fatal(failed, err)
-	}
-	configPath := filepath.Join(wd, configFilename)
-
-	inputModification, err := hl7converter.ReadJSONConfigBlock(configPath, configInputBlockType)
-	if err != nil || inputModification == nil {
-		t.Fatal(failed, err)
+		t.Fatal(err)
 	}
 
-	outputModification, err := hl7converter.ReadJSONConfigBlock(configPath, configOutputBlockType)
-	if err != nil || outputModification == nil {
-		t.Fatal(failed, err)
-	}
+	t.Log("Result:", string(ready))
 
-	out, err := hl7converter.ConvertMsg(inputModification, outputModification, inputMsgHBL)
-	if err != nil {
-		t.Fatal(failed, err)
-	}
-
-	log.Println("Result:", string(out))
-
-	if !bytes.Equal(out, outputMsgHBL) {
+	if !bytes.Equal(ready, outputMsgHBL) {
 		t.Fatal(failed, "Ouput msg has been wrong converted")
 	}
+
+	ready, err = hl7converter.FullConvertMsg(configFilename, configOutputBlockType, configInputBlockType, inputNewMsgHBL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Result:", string(ready))
+
+	if !bytes.Equal(ready, outputNewMsgHBL) {
+		t.Fatal(failed, "Ouput msg has been wrong converted")
+	}
+
+	ready, err = hl7converter.FullConvertMsg(configFilename, configInputBlockType2, configOutputBlockType2, inMsgHL7CL1200)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Result:", string(ready))
+
 
 	t.Logf("%s TestConvertMsg right", success)
 }
 
 
 func BenchmarkConvertMsg(b *testing.B) {
-	wd, err := os.Getwd()
+	ready, err := hl7converter.FullConvertMsg(configFilename, configInputBlockType, configOutputBlockType, inputMsgHBL)
 	if err != nil {
-		b.Fatal(failed, err)
-	}
-	configPath := filepath.Join(wd, configFilename)
-
-	inputModification, err := hl7converter.ReadJSONConfigBlock(configPath, configInputBlockType)
-	if err != nil || inputModification == nil {
-		b.Fatal(failed, err)
+		b.Fatal(err)
 	}
 
-	outputModification, err := hl7converter.ReadJSONConfigBlock(configPath, configOutputBlockType)
-	if err != nil || outputModification == nil {
-		b.Fatal(failed, err)
-	}
+	b.Log("Result:", string(ready))
 
-	out, err := hl7converter.ConvertMsg(inputModification, outputModification, inputMsgHBL)
-	if err != nil {
-		b.Fatal(failed, err)
-	}
-
-	if !bytes.Equal(out, outputMsgHBL) {
+	if !bytes.Equal(ready, outputMsgHBL) {
 		b.Fatal(failed, "Ouput msg has been wrong converted")
 	}
 

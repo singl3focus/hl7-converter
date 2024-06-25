@@ -15,21 +15,21 @@
                     },
                     "MessageControlID": {
                         "position": 3,
-                        "linked_fields": ["MessageControlID"]
+                        "linked_fields": ["MSH.MessageControlID"]
                     },
                     "ProccessingID": {
                         "position": 12,
-                        "linked_fields": ["ProccessingID"]
+                        "linked_fields": ["MSH.ProccessingID"]
                     },
                     "DateAndTime": {
                         "position": 14,
-                        "linked_fields": ["DateAndTime"]
+                        "linked_fields": ["MSH.DateAndTime"]
                     }
                 }
             },
 
             "P": {
-                "linked": [],
+                "linked": ["PID"],
                 "fields_number": 31,
                 "fields": {}
             },
@@ -40,11 +40,12 @@
                 "fields": {
                     "SpecimenID": { 
                         "position": 3,
-                        "linked_fields": ["PlacerOrderNumber"]
+                        "linked_fields": ["OBR.PlacerOrderNumber"]
                     },
                     "SpecimenDescriptor": {
+                        "components_number": 3,
                         "position": 16.1,
-                        "linked_fields": ["SpecimenSource"]
+                        "linked_fields": ["OBR.SpecimenSource"]
                     }
                 }
             },
@@ -56,31 +57,31 @@
                     "ManufacturersTestType": { 
                         "components_number": 7,
                         "position": 3.4,
-                        "linked_fields": ["ObservationIdentifier"] 
+                        "linked_fields": ["OBX.ObservationIdentifier"] 
                     },
                     "ManufacturersTestName": {
                         "components_number": 7,
                         "position": 3.5,
-                        "linked_fields": ["ObservationIdentifier"]
+                        "linked_fields": ["OBX.ObservationIdentifier"]
                     },
                     "TestCode": {
                         "components_number": 7,
                         "position": 3.7,
-                        "linked_fields": ["ObservationIdentifier"] 
+                        "linked_fields": ["OBX.ObservationIdentifier"] 
                     },
                     "DataMeasurementValue": { 
                         "position": 4,
-                        "linked_fields": ["ObervationValue"] 
+                        "linked_fields": ["OBX.ObervationValue"] 
                     },
                     "ResultStatus": { 
                         "position": 9,
-                        "linked_fields": ["ResultStatus"] 
+                        "linked_fields": ["OBX.ResultStatus"] 
                     }
                 }
             },
 
             "L": {
-                "linked": [],
+                "linked": ["none"],
                 "fields_number": 3,
                 "fields": {
                     "SequenceNumber": {
@@ -119,19 +120,19 @@
                     },
                     "DateAndTime": { 
                         "position": 7,
-                        "linked_fields": ["DateAndTime"]
+                        "linked_fields": ["H.DateAndTime"]
                     },
                     "MessageType": {
-                        "default_value": "ORU^R01", 
+                        "default_value": "ORU~R01", 
                         "position": 9
                     },
                     "MessageControlID": { 
                         "position": 10,
-                        "linked_fields": ["MessageControlID"]
+                        "linked_fields": ["H.MessageControlID"]
                     },
                     "ProccessingID": { 
                         "position": 11,
-                        "linked_fields": ["ProccessingID"]
+                        "linked_fields": ["H.ProccessingID"]
                     },
                     "VersionID": {
                         "default_value": "2.3.1", 
@@ -145,12 +146,12 @@
             },
 
             "PID": {
-                "linked": [],
+                "linked": ["P"],
                 "fields_number": 30,
                 "fields": {
                     "ExternalID": {
                         "position": 3,
-                        "linked_fields": ["SpecimenID"] 
+                        "linked_fields": ["O.SpecimenID"] 
                     }    
                 }
             },
@@ -161,11 +162,11 @@
                 "fields": {
                     "PlacerOrderNumber": { 
                         "position": 3,
-                        "linked_fields": ["SpecimenID"]
+                        "linked_fields": ["O.SpecimenID"]
                     },
                     "SpecimenSource":{ 
                         "position": 16,
-                        "linked_fields": ["SpecimenDescriptor"]
+                        "linked_fields": ["O.SpecimenDescriptor"]
                     } 
                 }
             },
@@ -176,22 +177,296 @@
                 "fields": {
                     "ObservationIdentifier": { 
                         "position": 4,
-                        "linked_fields": ["ManufacturersTestType", "ManufacturersTestName", "TestCode"] 
+                        "linked_fields": ["R.ManufacturersTestType", "R.ManufacturersTestName", "R.TestCode"] 
                     },
                     "ObservationSubID": {
                         "position": 5,
-                        "linked_fields": ["TestCode"]
+                        "linked_fields": ["R.TestCode"]
                     },
                     "ObervationValue": {
                         "position": 6,
-                        "linked_fields": ["DataMeasurementValue"]
+                        "linked_fields": ["R.DataMeasurementValue"]
                     },
                     "ResultStatus": { 
                         "position": 12,
-                        "linked_fields": ["ResultStatus"]
+                        "linked_fields": ["R.ResultStatus"]
                     }
                 }
             }
         }   
+    },
+
+    "cl1200_hl7": {
+        "Component_separator": "^",
+        "Field_separator": "|",
+        "Line_separator": "\n",
+
+        "Tags": {
+            "MSH": {
+                "linked": ["H"],
+                "fields_number": 21,
+                "fields": {
+                    "Delimiters": {
+                        "default_value": "^~\\&",
+                        "position": 2
+                    },
+                    "MessageControlID": {
+                        "position": 11,
+                        "linked_fields": ["H.MessageControlID"]
+                    },
+                    "MessageType": {
+                        "position": 11,
+                        "default_value": "ORU^R01"
+                    },
+                    "ProcessingID": {
+                        "position": 12,
+                        "default_value": "P"
+                    },
+                    "VersionNumber": {
+                        "position": 13,
+                        "default_value" :"2.3.1"
+                    }
+                }
+            },
+            "PID": {
+                "linked": ["P"],
+                "fields_number": 30,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["P.SequenceNumber"]
+                    },
+                    "PatientName": {
+                        "position": 6,
+                        "linked_fields": ["P.PatientName"]
+                    },
+                    "PatientDOB": {
+                        "position": 8,
+                        "linked_fields": ["P.PatientDOB"]
+                    },
+                    "PatientSex": {
+                        "position": 9,
+                        "linked_fields": ["P.PatientSex"]
+                    }
+                }
+            },
+            "OBR": {
+                "linked": ["O"],
+                "fields_number": 47,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["O.SequenceNumber"]
+                    },
+                    "SpecimenID": {
+                        "position": 3,
+                        "linked_fields": ["O.SpecimenID"]
+                    }
+                }
+            },
+            "OBX": {
+                "linked": ["R"],
+                "fields_number": 17,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["R.SequenceNumber"]
+                    },
+                    "UniversalTestID": {
+                        "position": 5,
+                        "linked_fields": ["R.Tests"]
+                    },
+                    "MeasurementValue": {
+                        "position": 6,
+                        "linked_fields": ["R.MeasurementValue"]
+                    },
+                    "Units": {
+                        "position": 7,
+                        "linked_fields": ["R.Units"]
+                    },
+                    "AbnormalFlag": {
+                        "position": 9,
+                        "linked_fields": ["R.AbnormalFlag"]
+                    },
+                    "Status": {
+                        "position": 12,
+                        "linked_fields": ["R.Status"]
+                    }
+                }
+            },
+            "QRD": {
+                "linked": ["Q"],
+                "fields_number": 13,
+                "fields": {
+                    "SpecimenID": {
+                        "position": 9,
+                        "linked_fields": ["O.SpecimenID"]
+                    }
+                }
+            }
+        }
+    },
+
+    "access": {
+        "Component_separator": "^",
+        "Field_separator": "|",
+        "Line_separator": "\n",
+
+        "Tags": {
+            "H": {
+                "linked": ["MSH"],
+                "fields_number": 14,
+                "fields": {
+                    "Delimiters": {
+                        "default_value": "\\^&",
+                        "position": 2
+                    },
+                    "MessageControlID": {
+                        "position": 3,
+                        "linked_fields": ["MSH.MessageControlID"]
+                    },
+                    "SenderName": {
+                        "position": 5.1,
+                        "components_number": 2,
+                        "default_value" :"ACCESS"
+                    },
+                    "SenderID": {
+                        "position": 5.2,
+                        "components_number": 2,
+                        "default_value": "500001"
+                    },
+                    "ProcessingID": {
+                        "position": 12,
+                        "default_value": "P"
+                    },
+                    "VersionNumber": {
+                        "position": 13,
+                        "default_value" :"1"
+                    }
+                }
+            },
+            "P": {
+                "linked": ["PID"],
+                "fields_number": 34,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["PID.SequenceNumber"]
+                    },
+                    "PatientName": {
+                        "position": 6,
+                        "linked_fields": ["PID.PatientName"]
+                    },
+                    "PatientDOB": {
+                        "position": 8,
+                        "linked_fields": ["PID.PatientDOB"]
+                    },
+                    "PatientSex": {
+                        "position": 9,
+                        "linked_fields": ["PID.PatientSex"]
+                    }
+                }
+            },
+            "O": {
+                "linked": ["OBR"],
+                "fields_number": 31,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["OBR.SequenceNumber"]
+                    },
+                    "SpecimenID": {
+                        "position": 3,
+                        "linked_fields": ["OBR.SpecimenID"]
+                    }
+                }
+            },
+            "R": {
+                "linked": ["OBX"],
+                "fields_number": 14,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["OBX.SequenceNumber"]
+                    },
+                    "Tests": {
+                        "position": 3,
+                        "linked_fields": ["OBX.UniversalTestID"]
+                    },
+                    "MeasurementValue": {
+                        "components_number": 2,
+                        "position": 4.1,
+                        "linked_fields": ["OBX.MeasurementValue"]
+                    },
+                    "Interpretation": {
+                        "default_value": "SKIP",
+                        "components_number": 2,
+                        "position": 4.2,
+                        "linked_fields": ["OBX.Interpretation"]
+                    },
+                    "Units": {
+                        "position": 5,
+                        "linked_fields": ["OBX.Units"]
+                    },
+                    "RangeUpperLimit": {
+                        "default_value": "SKIP",
+                        "components_number": 2,
+                        "position": 6.1,
+                        "linked_fields": ["OBX.RangeUpperLimit"]
+                    },
+                    "RangeLowerLimit": {
+                        "default_value": "SKIP",
+                        "components_number": 2,
+                        "position": 6.2,
+                        "linked_fields": ["OBX.RangeLowerLimit"]
+                    },
+                    "AbnormalFlag": {
+                        "position": 7,
+                        "linked_fields": ["OBX.AbnormalFlag"]
+                    },
+                    "Status": {
+                        "position": 9,
+                        "linked_fields": ["OBX.Status"]
+                    }
+                }
+            },
+            "Q": {
+                "linked": ["QRD"],
+                "fields_number": 13,
+                "fields": {
+                    "SequenceNumber": {
+                        "default_value": "1",
+                        "position": 2
+                    },
+                    "PatientID": {
+                        "components_number": 2,
+                        "position": 3.1,
+                        "linked_fields": ["PID.PatientID"]
+                    },
+                    "SpecimenID": {
+                        "components_number": 2,
+                        "position": 3.2,
+                        "linked_fields": ["PID.PatientID"]
+                    },
+                    "RequestStatus": {
+                        "default_value": "O",
+                        "position": 13
+                    }
+                }
+            },
+            "L": {
+                "fields_number": 3,
+                "fields": {
+                    "SequenceNumber": {
+                        "default_value": "1",
+                        "position": 2
+                    },
+                    "Flag": {
+                        "default_value": "N",
+                        "position": 3
+                    }
+                }
+            }
+        }
     }
 }

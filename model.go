@@ -1,10 +1,5 @@
 package hl7converter
 
-// unused
-type ConfigConverter struct {
-	Modification []Modification
-}
-
 type Modification struct {
 	ComponentSeparator string `json:"Component_separator"`
 	FieldSeparator 	   string `json:"Field_separator"`
@@ -30,5 +25,5 @@ type Field struct{
 // _________________________________________
 
 type Msg struct {
-	Tags map[string][]string // Tag - key, fields is value (slice)
+	Tags map[string][]string
 }

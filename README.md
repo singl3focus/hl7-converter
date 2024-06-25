@@ -62,10 +62,18 @@ func main() {
 ### Rules
 - **See examples and fill it out like**
 
-- all keys in Json nust be string
+- all keys in Json must be string
 - if you specify multiple values in array, they must be separated by a comma ***(,)***
 - in case if linked tags has more than one match will be choose first one 
 - field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of ""
+
+- ! Converter wiil be try set default value in this cases:
+	- If set value from input field to output has been unssuccessful
+	- If "linked_fields" is empty 
+
+
+> if you want this not to happen, just delete the "default_value" field in the configuration
+
 
 ### Structure
 - First comes the name of the config(*example: "device_protocol"*), then the delimiter fields and an array of tags
