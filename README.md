@@ -65,7 +65,7 @@ func main() {
 - all keys in Json must be string
 - if you specify multiple values in array, they must be separated by a comma ***(,)***
 - in case if linked tags has more than one match will be choose first one 
-- field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of ""
+- field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of all separators
 
 - ! Converter wiil be try set default value in this cases:
 	- If set value from input field to output has been unssuccessful
