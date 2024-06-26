@@ -94,6 +94,8 @@ func main() {
 ### Rules
 - **See examples and fill it out like**
 
+- ***Before convert your message Make sure that message not contain line separator (in case if line separator equal component separator). If you meet this you need change all component separator in message on other symbol (in config you need specified replaced symbol), and after converting replace component separator back***
+
 - all keys in Json must be string
 - if you specify multiple values in array, they must be separated by a comma ***(,)***
 - in case if linked tags has more than one match will be choose first one 

@@ -20,7 +20,7 @@ var (
 	configOutputBlockType = "hl7_mindray_hbl"
 
 	configInputBlockType2 = "cl1200_hl7"
-	configOutputBlockType2 = "access"
+	configOutputBlockType2 = "access_cl1200"
 )
 
 var (
@@ -48,6 +48,9 @@ var (
 		"OBR|1|12345678|10|^|Y|20120405193926|20120405193914|20120405193914|||||linchuangzhenduan|20120405193914|serum|lincyisheng|keshi||||||||3|||||||||||||||||||||||\n" +
 		"OBX|1|NM|2|TBil|100| umol/L |-|N|||F||100|20120405194245||yishen|0|")
 
+
+	NEWinpCL8000 = []byte("H|\\~&|||eCL8000~00.00.03~I05A16100023|||||||RQ|1394-97|20191105190721" + CR +
+	"Q|1|123~134144||||||||||") // some transformations (^ => ~)
 )
 
 
@@ -81,6 +84,8 @@ func TestFullConvertMsg(t *testing.T) {
 		t.Fatal(failed, "Ouput msg has been wrong converted")
 	}
 
+
+
 	ready, err = hl7converter.FullConvertMsg(configFilename, configOutputBlockType, configInputBlockType, inputNewMsgHBL)
 	if err != nil {
 		t.Fatal(err)
@@ -92,6 +97,8 @@ func TestFullConvertMsg(t *testing.T) {
 		t.Fatal(failed, "Ouput msg has been wrong converted")
 	}
 
+
+
 	ready, err = hl7converter.FullConvertMsg(configFilename, configInputBlockType2, configOutputBlockType2, inMsgHL7CL1200)
 	if err != nil {
 		t.Fatal(err)
@@ -99,6 +106,15 @@ func TestFullConvertMsg(t *testing.T) {
 
 	t.Log("Result:", string(ready))
 
+
+
+	ready, err = hl7converter.FullConvertMsg(configFilename, "astm_cl_8000", "access_cl_8000", NEWinpCL8000)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("NEW Result:", string(ready))
+	
 
 	t.Logf("%s TestConvertMsg right", success)
 }

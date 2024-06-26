@@ -307,7 +307,7 @@
         }
     },
 
-    "access": {
+    "access_cl1200": {
         "Component_separator": "^",
         "Field_separator": "|",
         "Line_separator": "\n",
@@ -455,6 +455,263 @@
                 }
             },
             "L": {
+                "fields_number": 3,
+                "fields": {
+                    "SequenceNumber": {
+                        "default_value": "1",
+                        "position": 2
+                    },
+                    "Flag": {
+                        "default_value": "N",
+                        "position": 3
+                    }
+                }
+            }
+        }
+    },
+
+    "astm_cl_8000": {
+        "Component_separator": "~",
+        "Field_separator": "|",
+        "Line_separator": "^",
+
+        "Tags": {
+            "H": {
+                "linked": ["H"],
+                "fields_number": 14,
+                "fields": {
+                    "Delimiters": {
+                        "default_value": "\\^&",
+                        "position": 2
+                    },
+                    "MessageControlID": {
+                        "position": 3,
+                        "linked_fields": ["H.MessageControlID"]
+                    },
+                    "SenderName": {
+                        "position": 5.3,
+                        "components_count": 3,
+                        "linked_fields": ["H.SenderName"]
+                    },
+                    "ProcessingID": {
+                        "position": 12,
+                        "default_value": "P"
+                    },
+                    "VersionNumber": {
+                        "position": 13,
+                        "default_value" :"1"
+                    },
+                    "DateAndTime": {
+                        "position": 14,
+                        "linked_fields": ["H.DateAndTime"]
+                    }
+                }
+            },
+            "O": {
+                "linked": ["O"],
+                "fields_number": 31,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["O.SequenceNumber"]
+                    },
+                    "SpecimenID": {
+                        "position": 3.1,
+                        "components_count": 2,
+                        "linked_fields": ["O.SpecimenID"]
+                    },
+                    "SpecimenType": {
+                        "position": 16,
+                        "linked_fields": ["O.SpecimenType"]
+                    }
+                }
+            },
+            "Q": {
+                "linked": ["Q"],
+                "fields_number": 13,
+                "fields": {
+                    "SequenceNumber": {
+                        "linked_fields": ["Q.SequenceNumber"],
+                        "position": 2
+                    },
+                    "PatientID": {
+                        "components_count": 2,
+                        "position": 3.1,
+                        "linked_fields": ["Q.PatientID"]
+                    },
+                    "SpecimenID": {
+                        "components_count": 2,
+                        "position": 3.2,
+                        "linked_fields": ["Q.SpecimenID"]
+                    },
+                    "RequestStatus": {
+                        "default_value": "O",
+                        "position": 13
+                    }
+                }
+            }
+        }
+    },
+
+    "access_cl_8000": {
+        "Component_separator": "^",
+        "Field_separator": "|",
+        "Line_separator": "\n",
+
+        "Tags": {
+            "H": {
+                "linked": ["H"],
+                "fields_number": 14,
+                "fields": {
+                    "Delimiters": {
+                        "default_value": "\\^&",
+                        "position": 2
+                    },
+                    "MessageControlID": {
+                        "position": 3,
+                        "linked_fields": ["H.MessageControlID"]
+                    },
+                    "SenderName": {
+                        "position": 5.1,
+                        "components_count": 2,
+                        "linked_fields": ["H.SenderName"]
+                    },
+                    "SenderID": {
+                        "position": 5.2,
+                        "components_count": 2,
+                        "default_value": "ID"
+                    },
+                    "ProcessingID": {
+                        "position": 12,
+                        "linked_fields": ["H.ProcessingID"],
+                        "default_value": "P"
+                    },
+                    "VersionNumber": {
+                        "position": 13,
+                        "linked_fields": ["H.VersionNumber"]
+                    },
+                    "DateAndTime": {
+                        "position": 14,
+                        "linked_fields": ["H.DateAndTime"]
+                    }
+                }
+            },
+            "P": {
+                "linked": ["none"],
+                "fields_number": 34,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["PID.SequenceNumber"]
+                    },
+                    "PatientName": {
+                        "position": 6,
+                        "linked_fields": ["PID.PatientName"]
+                    },
+                    "PatientDOB": {
+                        "position": 8,
+                        "linked_fields": ["PID.PatientDOB"]
+                    },
+                    "PatientSex": {
+                        "position": 9,
+                        "linked_fields": ["PID.PatientSex"]
+                    }
+                }
+            },
+            "O": {
+                "linked": ["O"],
+                "fields_number": 31,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["O.SequenceNumber"]
+                    },
+                    "SpecimenID": {
+                        "position": 3,
+                        "linked_fields": ["O.SpecimenID"]
+                    },
+                    "SpecimenType": {
+                        "components_count": 2,
+                        "position": 16.1,
+                        "linked_fields": ["O.SpecimenType"]
+                    }
+                }
+            },
+            "R": {
+                "linked": ["none"],
+                "fields_number": 14,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["OBX.SequenceNumber"]
+                    },
+                    "Tests": {
+                        "position": 3,
+                        "linked_fields": ["OBX.UniversalTestID"]
+                    },
+                    "MeasurementValue": {
+                        "components_count": 2,
+                        "position": 4.1,
+                        "linked_fields": ["OBX.MeasurementValue"]
+                    },
+                    "Interpretation": {
+                        "default_value": "SKIP",
+                        "components_count": 2,
+                        "position": 4.2,
+                        "linked_fields": ["OBX.Interpretation"]
+                    },
+                    "Units": {
+                        "position": 5,
+                        "linked_fields": ["OBX.Units"]
+                    },
+                    "RangeUpperLimit": {
+                        "default_value": "SKIP",
+                        "components_count": 2,
+                        "position": 6.1,
+                        "linked_fields": ["OBX.RangeUpperLimit"]
+                    },
+                    "RangeLowerLimit": {
+                        "default_value": "SKIP",
+                        "components_count": 2,
+                        "position": 6.2,
+                        "linked_fields": ["OBX.RangeLowerLimit"]
+                    },
+                    "AbnormalFlag": {
+                        "position": 7,
+                        "linked_fields": ["OBX.AbnormalFlag"]
+                    },
+                    "Status": {
+                        "position": 9,
+                        "linked_fields": ["OBX.Status"]
+                    }
+                }
+            },
+            "Q": {
+                "linked": ["Q"],
+                "fields_number": 13,
+                "fields": {
+                    "SequenceNumber": {
+                        "linked_fields": ["Q.SequenceNumber"],
+                        "position": 2
+                    },
+                    "PatientID": {
+                        "components_count": 2,
+                        "position": 3.1,
+                        "linked_fields": ["Q.PatientID"]
+                    },
+                    "SpecimenID": {
+                        "components_count": 2,
+                        "position": 3.2,
+                        "linked_fields": ["Q.SpecimenID"]
+                    },
+                    "RequestStatus": {
+                        "default_value": "O",
+                        "position": 13
+                    }
+                }
+            },
+            "L": {
+                "linked": ["none"],
                 "fields_number": 3,
                 "fields": {
                     "SequenceNumber": {
