@@ -43,7 +43,7 @@
                         "linked_fields": ["OBR.PlacerOrderNumber"]
                     },
                     "SpecimenDescriptor": {
-                        "components_number": 3,
+                        "components_count": 3,
                         "position": 16.1,
                         "linked_fields": ["OBR.SpecimenSource"]
                     }
@@ -55,17 +55,17 @@
                 "fields_number": 14,
                 "fields": {
                     "ManufacturersTestType": { 
-                        "components_number": 7,
+                        "components_count": 7,
                         "position": 3.4,
                         "linked_fields": ["OBX.ObservationIdentifier"] 
                     },
                     "ManufacturersTestName": {
-                        "components_number": 7,
+                        "components_count": 7,
                         "position": 3.5,
                         "linked_fields": ["OBX.ObservationIdentifier"]
                     },
                     "TestCode": {
-                        "components_number": 7,
+                        "components_count": 7,
                         "position": 3.7,
                         "linked_fields": ["OBX.ObservationIdentifier"] 
                     },
@@ -327,12 +327,12 @@
                     },
                     "SenderName": {
                         "position": 5.1,
-                        "components_number": 2,
+                        "components_count": 2,
                         "default_value" :"ACCESS"
                     },
                     "SenderID": {
                         "position": 5.2,
-                        "components_number": 2,
+                        "components_count": 2,
                         "default_value": "500001"
                     },
                     "ProcessingID": {
@@ -394,13 +394,13 @@
                         "linked_fields": ["OBX.UniversalTestID"]
                     },
                     "MeasurementValue": {
-                        "components_number": 2,
+                        "components_count": 2,
                         "position": 4.1,
                         "linked_fields": ["OBX.MeasurementValue"]
                     },
                     "Interpretation": {
                         "default_value": "SKIP",
-                        "components_number": 2,
+                        "components_count": 2,
                         "position": 4.2,
                         "linked_fields": ["OBX.Interpretation"]
                     },
@@ -410,13 +410,13 @@
                     },
                     "RangeUpperLimit": {
                         "default_value": "SKIP",
-                        "components_number": 2,
+                        "components_count": 2,
                         "position": 6.1,
                         "linked_fields": ["OBX.RangeUpperLimit"]
                     },
                     "RangeLowerLimit": {
                         "default_value": "SKIP",
-                        "components_number": 2,
+                        "components_count": 2,
                         "position": 6.2,
                         "linked_fields": ["OBX.RangeLowerLimit"]
                     },
@@ -439,12 +439,12 @@
                         "position": 2
                     },
                     "PatientID": {
-                        "components_number": 2,
+                        "components_count": 2,
                         "position": 3.1,
                         "linked_fields": ["PID.PatientID"]
                     },
                     "SpecimenID": {
-                        "components_number": 2,
+                        "components_count": 2,
                         "position": 3.2,
                         "linked_fields": ["PID.PatientID"]
                     },

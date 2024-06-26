@@ -13,7 +13,10 @@ const (
 )
 
 
-// ConvertToMSG
+// ConvertToMSG 
+// return MSG model for get fields value specified in output 'linked_fields'
+//
+// WARNING: message cannot contain a same tags because for access to value use map (map cannot contain same key)
 func ConvertToMSG(input *Modification, fullMsg []byte, customSplit func(data []byte, atEOF bool)(advance int, token []byte, err error)) (*Msg, error) {
 	var msg Msg
 	
