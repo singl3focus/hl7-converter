@@ -494,16 +494,42 @@
                         "linked_fields": ["H.SenderName"]
                     },
                     "ProcessingID": {
-                        "position": 12,
-                        "default_value": "P"
+                        "position": 12
                     },
                     "VersionNumber": {
                         "position": 13,
-                        "default_value" :"1"
+                        "default_value" : "1"
                     },
                     "DateAndTime": {
                         "position": 14,
                         "linked_fields": ["H.DateAndTime"]
+                    }
+                }
+            },
+            "P": {
+                "linked": ["P"],
+                "fields_number": 35,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["P.SequenceNumber"]
+                    },
+                    "PatientID": {
+                        "position": 4,
+                        "linked_fields": ["P.PracticeAssignedPatientID"]
+                    },
+                    "PatientName": {
+                        "position": 6,
+                        "linked_fields": ["P.PatientName"]
+                    },
+                    "BirthDate": {
+                        "position": 8.1,
+                        "components_count": 3,
+                        "linked_fields": ["P.PatientDOB"]
+                    },
+                    "PatientSex": {
+                        "position": 9,
+                        "linked_fields": ["P.PatientSex"]
                     }
                 }
             },
@@ -523,6 +549,70 @@
                     "SpecimenType": {
                         "position": 16,
                         "linked_fields": ["O.SpecimenType"]
+                    }
+                }
+            },
+            "R":{
+                "linked": ["R"],
+                "fields_number": 14,
+                "fields": {
+                    "SequenceNumber": {
+                        "position": 2,
+                        "linked_fields": ["R.SequenceNumber"]
+                    },
+                    "ResultType": {
+                        "position": 3.3,
+                        "components_count": 3,
+                        "linked_fields": ["R.Type"]
+                    },
+                    "MeasurementValue": {
+                        "components_count": 3,
+                        "position": 4.1,
+                        "linked_fields": ["R.MeasurementValue"]
+                    },
+                    "Interpretation": {
+                        "components_count": 3,
+                        "position": 4.2,
+                        "linked_fields": ["R.Interpretation"]
+                    },
+                    "Units": {
+                        "position": 5,
+                        "linked_fields": ["R.Units"]
+                    },
+                    "RangeLowerLimit": {
+                        "components_count": 2,
+                        "position": 6.1,
+                        "linked_fields": ["R.RangeLowerLimit"]
+                    },
+                    "RangeUpperLimit": {
+                        "components_count": 2,
+                        "position": 6.2,
+                        "linked_fields": ["R.RangeUpperLimit"]
+                    },
+                    "AbnormalFlag": {
+                        "position": 7,
+                        "linked_fields": ["R.AbnormalFlag"]
+                    },
+                    "NatureofAbnormalityTesting": {
+                        "position": 8,
+                        "linked_fields": ["R.AbnormalFlag"]
+                    },
+                    "ResultStatus": {
+                        "position": 9,
+                        "linked_fields": ["R.ResultStatus"]
+                    },
+                    "DataTimeTestStarted": {
+                        "position": 12,
+                        "linked_fields": ["R.DataTimeTestStarted"]
+                    },
+                    "DataTimeTestCompleted": {
+                        "position": 13,
+                        "linked_fields": ["R.DataTimeTestCompleted"]
+                    },
+                    "InstrumentIdentification": {
+                        "components_count": 2,
+                        "position": 14.1,
+                        "linked_fields": ["R.InstrumentIdentification"]
                     }
                 }
             },
@@ -546,7 +636,8 @@
                     },
                     "RequestStatus": {
                         "default_value": "O",
-                        "position": 13
+                        "position": 13,
+                        "linked_fields": ["Q.RequestStatus"]
                     }
                 }
             }
@@ -579,12 +670,11 @@
                     "SenderID": {
                         "position": 5.2,
                         "components_count": 2,
-                        "default_value": "ID"
+                        "default_value": ""
                     },
                     "ProcessingID": {
                         "position": 12,
-                        "linked_fields": ["H.ProcessingID"],
-                        "default_value": "P"
+                        "linked_fields": ["H.ProcessingID"]
                     },
                     "VersionNumber": {
                         "position": 13,
@@ -597,24 +687,28 @@
                 }
             },
             "P": {
-                "linked": ["none"],
+                "linked": ["P"],
                 "fields_number": 34,
                 "fields": {
                     "SequenceNumber": {
                         "position": 2,
-                        "linked_fields": ["PID.SequenceNumber"]
+                        "linked_fields": ["P.SequenceNumber"]
+                    },
+                    "PracticeAssignedPatientID": {
+                        "position": 3,
+                        "linked_fields": ["P.PatientID"]   
                     },
                     "PatientName": {
                         "position": 6,
-                        "linked_fields": ["PID.PatientName"]
+                        "linked_fields": ["P.PatientName"]
                     },
                     "PatientDOB": {
                         "position": 8,
-                        "linked_fields": ["PID.PatientDOB"]
+                        "linked_fields": ["P.BirthDate"]
                     },
                     "PatientSex": {
                         "position": 9,
-                        "linked_fields": ["PID.PatientSex"]
+                        "linked_fields": ["P.PatientSex"]
                     }
                 }
             },
@@ -638,51 +732,64 @@
                 }
             },
             "R": {
-                "linked": ["none"],
-                "fields_number": 14,
+                "linked": ["R"],
+                "fields_number": 15,
                 "fields": {
                     "SequenceNumber": {
                         "position": 2,
-                        "linked_fields": ["OBX.SequenceNumber"]
+                        "linked_fields": ["R.SequenceNumber"]
                     },
-                    "Tests": {
-                        "position": 3,
-                        "linked_fields": ["OBX.UniversalTestID"]
+                    "Type": {
+                        "position": 3.3,
+                        "linked_fields": ["R.ResultType"]
                     },
                     "MeasurementValue": {
                         "components_count": 2,
                         "position": 4.1,
-                        "linked_fields": ["OBX.MeasurementValue"]
+                        "linked_fields": ["R.MeasurementValue"]
                     },
                     "Interpretation": {
-                        "default_value": "SKIP",
                         "components_count": 2,
                         "position": 4.2,
-                        "linked_fields": ["OBX.Interpretation"]
+                        "linked_fields": ["R.Interpretation"]
                     },
                     "Units": {
                         "position": 5,
-                        "linked_fields": ["OBX.Units"]
+                        "linked_fields": ["R.Units"]
                     },
-                    "RangeUpperLimit": {
-                        "default_value": "SKIP",
+                   "RangeLowerLimit": {
                         "components_count": 2,
                         "position": 6.1,
-                        "linked_fields": ["OBX.RangeUpperLimit"]
+                        "linked_fields": ["R.RangeLowerLimit"]
                     },
-                    "RangeLowerLimit": {
-                        "default_value": "SKIP",
+                    "RangeUpperLimit": {
                         "components_count": 2,
                         "position": 6.2,
-                        "linked_fields": ["OBX.RangeLowerLimit"]
+                        "linked_fields": ["R.RangeUpperLimit"]
                     },
                     "AbnormalFlag": {
-                        "position": 7,
-                        "linked_fields": ["OBX.AbnormalFlag"]
+                        "position": 8,
+                        "linked_fields": ["R.AbnormalFlag"]
                     },
-                    "Status": {
+                    "NatureofAbnormalityTesting": {
                         "position": 9,
-                        "linked_fields": ["OBX.Status"]
+                        "linked_fields": ["R.AbnormalFlag"]
+                    },
+                    "ResultStatus": {
+                        "position": 10,
+                        "linked_fields": ["R.ResultStatus"]
+                    },
+                    "DataTimeTestStarted": {
+                        "position": 13,
+                        "linked_fields": ["R.DataTimeTestStarted"]
+                    },
+                    "DataTimeTestCompleted": {
+                        "position": 14,
+                        "linked_fields": ["R.DataTimeTestCompleted"]
+                    },
+                    "InstrumentIdentification": {
+                        "position": 15,
+                        "linked_fields": ["R.InstrumentIdentification"]
                     }
                 }
             },
@@ -706,7 +813,8 @@
                     },
                     "RequestStatus": {
                         "default_value": "O",
-                        "position": 13
+                        "position": 13,
+                        "linked_fields": ["Q.RequestStatus"]
                     }
                 }
             },
