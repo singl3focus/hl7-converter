@@ -8,6 +8,8 @@ Package for convert hl7 message to different modifications
 
 ## Usage
 
+```go get github.com/singl3focus/hl7-converter```
+
 ```go
 package main
 
