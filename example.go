@@ -96,18 +96,18 @@ func FullConvertMsg(cfgName, cfgInBlockName, cfgOutBlockName string, msg []byte)
 func FullConvertMsgWithSameTags(cfgName, cfgInBlockName, cfgOutBlockName string, msgArr [][]byte, sameTag string) ([][]byte, error){
 	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	configPath := filepath.Join(wd, cfgName)
 
 	inputModification, err := ReadJSONConfigBlock(configPath, cfgInBlockName)
 	if err != nil || inputModification == nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	outputModification, err := ReadJSONConfigBlock(configPath, cfgOutBlockName)
 	if err != nil || outputModification == nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	results := make([][]byte, 0, len(msgArr))
