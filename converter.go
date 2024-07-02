@@ -174,51 +174,6 @@ func setFieldInOutputRow(in, out *Modification, fN string, fI *Field, tL []strin
 		}
 	}
 
-	/*
-	if len(LinkedFields) <= 1 { // If count linked fields less than or equal to 1 
-		if len(LinkedFields) == 0 { // Linked Fields not specified
-			err := setDefaultValueToField(in, out, fN, fI, tL)
-			if err != nil {
-				return err
-			}
-		} else {
-			// Get info about linked Field
-			linkedInfo := strings.Split(LinkedFields[0], link_separator) // len must be 2 (tag - 1, fieldName - 2)
-			if len(linkedInfo) != 2 {
-				return fmt.Errorf("specified field link is incorrect, field %s")
-			}
-			
-			linkedTag, linkedFieldName := linkedInfo[0], linkedInfo[1]
-
-			// Get info about linked Field
-			inFieldInfo, ok := in.Tags[linkedTag].Fields[linkedFieldName]
-
-			if !ok { // if we have not found the field, we set the default value
-				err := setDefaultValueToField(in, out, fN, fI, tL)
-				if err != nil {
-					return err
-				}
-
-			} else { // if we have found the field, we set it
-				err := setValueToField(in, out, fI, inFieldInfo.Position, tL, fullMsg.Tags[linkedTag])
-
-				if err != nil { // if set value has been unsecseful try set default
-					err := setDefaultValueToField(in, out, fN, fI, tL)
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-	} else { // If count linked fields is more than 1
-		err := setValueToFieldWithMoreLinks(in, out, fI, tL, rF)
-		if err != nil {
-			return err
-		}
-	}
-	*/
-
 	return nil
 }
 
