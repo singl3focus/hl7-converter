@@ -21,6 +21,9 @@ var (
 
 	configInputBlockType2 = "cl1200_hl7"
 	configOutputBlockType2 = "access_cl1200"
+
+	configInputBlockType3 = "astm_cl_8000"
+	configOutputBlockType3 = "access_cl_8000"
 )
 
 var (
@@ -69,6 +72,10 @@ var (
 		"PID|1|1001|||Mike||19851001095133|M|||keshi|||||||||||||||beizhu|||||\n" +
 		"OBR|1|12345678|10|^|Y|20120405193926|20120405193914|20120405193914|||||linchuangzhenduan|20120405193914|serum|lincyisheng|keshi||||||||3|||||||||||||||||||||||\n" +
 		"OBX|3|NM|6|AST|26.4| umol/L |-|N|||F||26.4|||yishen||")}
+
+
+	inMsgECL8000 = [][]byte{[]byte(
+		"H|\\~&|||eCL8000~01.00.02.251693~IA5A00001230|||||||PR|1394-97|20240701043119^P|N0002||||||~0~|||||||||||||||||||||||||||^O||160013~||~~0|R|||||||||20000101000000|0||||||||||F|||||^R|22|0~TSH~F|12.300~~↑|mIU/L|10.04~20.45|||N|||20000101000000|20000101000000|eCL8000~IA5A00001230^L|1|N")}	
 )
 
 
@@ -163,6 +170,19 @@ func TestFullConvertMsgWithSameTags(t *testing.T) {
 	}
 
 	t.Log("Final result: ", finalLine)
+
+
+	// _______________________________________
+
+	readyMsgs, err = hl7converter.FullConvertMsgWithSameTags(configFilename, configInputBlockType3, configOutputBlockType3, inMsgECL8000, "R")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, msg := range readyMsgs {
+		t.Log("Result:", string(msg))
+	}
+
 
 	t.Logf("%s TestConvertMsg right", success)
 }

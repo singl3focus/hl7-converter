@@ -667,11 +667,6 @@
                         "components_count": 2,
                         "linked_fields": ["H.SenderName"]
                     },
-                    "SenderID": {
-                        "position": 5.2,
-                        "components_count": 2,
-                        "default_value": "ID"
-                    },
                     "ProcessingID": {
                         "position": 12,
                         "linked_fields": ["H.ProcessingID"]
@@ -740,7 +735,8 @@
                         "linked_fields": ["R.SequenceNumber"]
                     },
                     "Type": {
-                        "position": 3.3,
+                        "position": 3.4,
+                        "components_count": 5,
                         "linked_fields": ["R.ResultType"]
                     },
                     "MeasurementValue": {
