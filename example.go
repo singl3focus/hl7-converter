@@ -6,7 +6,6 @@ import (
 	"log"
 	"bufio"
 	"bytes"
-	"strings"
 	"path/filepath"
 )
 
@@ -26,7 +25,7 @@ import (
 //
 // NOTE: Be careful. In this case, the config must be located in the same directory
 // as the file in which you are calling this function
-func FullConvertMsg(cfgName, cfgInBlockName, cfgOutBlockName string, msg []byte) ([]byte, error){
+func FullConvertMsg(cfgName, cfgInBlockName, cfgOutBlockName string, msg []byte) ([][]byte, error){
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -52,7 +51,7 @@ func FullConvertMsg(cfgName, cfgInBlockName, cfgOutBlockName string, msg []byte)
 	}	
 	
 	// _______________________________________
-	var out []string
+	results := make([][]byte, 0, 6)
 
 	scanner := bufio.NewScanner(bytes.NewReader(msg))
 	scanner.Split(LineSplit)
@@ -67,16 +66,14 @@ func FullConvertMsg(cfgName, cfgInBlockName, cfgOutBlockName string, msg []byte)
 			continue
 		}
 
-		out = append(out, res)
+		results = append(results, []byte(res))
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
-	convertedMsg := strings.Join(out, outputModification.LineSeparator)
-
-	return []byte(convertedMsg), nil
+	return results, nil
 }
 
 

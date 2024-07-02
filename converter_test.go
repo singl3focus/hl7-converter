@@ -78,45 +78,57 @@ func TestFullConvertMsg(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log("Result:", string(ready))
+	for _, msg := range ready {
+		t.Log("Result (frame):", string(msg))
+	}
 
-	if !bytes.Equal(ready, outputMsgHBL) {
+	res := bytes.Join(ready, []byte(CR))
+
+	if !bytes.Equal(res, outputMsgHBL) {
 		t.Fatal(failed, "Ouput msg has been wrong converted")
 	}
 
-
+	t.Log("New checking")
 
 	ready, err = hl7converter.FullConvertMsg(configFilename, configOutputBlockType, configInputBlockType, inputNewMsgHBL)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("Result:", string(ready))
+	for _, msg := range ready {
+		t.Log("Result (frame):", string(msg))
+	}
 
-	if !bytes.Equal(ready, outputNewMsgHBL) {
+	res = bytes.Join(ready, []byte("\n"))
+
+	if !bytes.Equal(res, outputNewMsgHBL) {
 		t.Fatal(failed, "Ouput msg has been wrong converted")
 	}
 
-
+	t.Log("New checking")
 
 	ready, err = hl7converter.FullConvertMsg(configFilename, configInputBlockType2, configOutputBlockType2, inMsgHL7CL1200)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("Result:", string(ready))
+	for _, msg := range ready {
+		t.Log("Result (frame):", string(msg))
+	}
 
-
+	t.Log("New checking")
 
 	ready, err = hl7converter.FullConvertMsg(configFilename, "astm_cl_8000", "access_cl_8000", NEWinpCL8000)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log("NEW Result:", string(ready))
+	for _, msg := range ready {
+		t.Log("Result (frame):", string(msg))
+	}
 	
 
-	t.Logf("%s TestConvertMsg right", success)
+	t.Log(success, "TestConvertMsg right")
 }
 
 
@@ -162,9 +174,13 @@ func BenchmarkConvertMsg(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.Log("Result:", string(ready))
+	for _, msg := range ready {
+		b.Log("Result (frame):", string(msg))
+	}
 
-	if !bytes.Equal(ready, outputMsgHBL) {
+	res := bytes.Join(ready, []byte(CR))
+
+	if !bytes.Equal(res, outputMsgHBL) {
 		b.Fatal(failed, "Ouput msg has been wrong converted")
 	}
 

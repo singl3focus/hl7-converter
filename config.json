@@ -670,7 +670,7 @@
                     "SenderID": {
                         "position": 5.2,
                         "components_count": 2,
-                        "default_value": ""
+                        "default_value": "ID"
                     },
                     "ProcessingID": {
                         "position": 12,
