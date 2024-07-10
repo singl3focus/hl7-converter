@@ -9,6 +9,35 @@ import (
 	"path/filepath"
 )
 
+// ConvertWithConverter function
+func ConvertWithConverter(cfgName, cfgInBlockName, cfgOutBlockName string, msg []byte) ([][]byte, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	configPath := filepath.Join(wd, cfgName)
+
+	inputModification, err := ReadJSONConfigBlock(configPath, cfgInBlockName)
+	if err != nil || inputModification == nil {
+		log.Fatal(err)
+	}
+
+	outputModification, err := ReadJSONConfigBlock(configPath, cfgOutBlockName)
+	if err != nil || outputModification == nil {
+		log.Fatal(err)
+	}
+
+	c, err := NewConverter(inputModification, outputModification)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Convert(msg)
+
+	return [][]byte{}, nil
+}
+
+
 // FullConvertMsg read config, load input and output Modification
 // and also converting msg
 //
@@ -150,22 +179,3 @@ func FullConvertMsgWithSameTags(cfgName, cfgInBlockName, cfgOutBlockName string,
 	return results, nil
 }
 
-
-// GetCustomSplit
-func GetCustomSplit(sep string) (func(data []byte, atEOF bool) (advance int, token []byte, err error)) {
-	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if atEOF && len(data) == 0 {
-			return 0, nil, nil
-		}
-		
-		if i := bytes.Index(data, []byte(sep)); i >= 0 {
-			return i + len(sep), data[0:i], nil
-		}
-		
-		if atEOF {
-			return len(data), data, nil
-		}
-		
-		return 0, nil, nil
-	}
-}

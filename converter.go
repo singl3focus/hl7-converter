@@ -1,127 +1,211 @@
 package hl7converter
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"math"
-	"bytes"
-	"bufio"
+	"sort"
+	"strconv"
 	"strings"
 )
 
-const (
-	link_separator = "."
-)
+type Converter struct {
+	// Data parsed from config.
+	// goal: find metadata(position, default_value, components_number, linked and data about Tags, Separators)
+	// about field so that then get value some field.
+	input, output *Modification 
+
+	// For effective split by rows of input message with help "bufio.Scanner"
+	lineSplit func(data []byte, atEOF bool)(advance int, token []byte, err error)
+
+	// Convertred structure of input message for fast find a needed field by tag
+	inMsg *Msg 
+
+	// Slice with with ordered tags for following the structure of the message
+	outOdreredTags []string
+}
 
 
-// ConvertToMSG 
-// return MSG model for get fields value specified in output 'linked_fields'
+func NewConverter(passedInput, passedOutput *Modification) (*Converter, error) {
+	converter := &Converter{
+		input: passedInput,
+		output: passedOutput,
+
+		lineSplit: GetCustomSplit(passedInput.LineSeparator),
+	}
+
+	return converter, nil
+}
+
+
+func (c *Converter) Convert(fullMsg []byte) (error) {
+	_, err := c.ConvertToMSG(fullMsg) // fill inMsg in Converter structure
+	if err != nil {
+		return err
+	}
+
+	_, err = c.GetOutOdreredTags() // fill OutOdreredTags in Converter structure
+	if err != nil {
+		return err
+	}
+
+	for _, tag := range c.outOdreredTags{
+		res, err := c.AssembleOutputRowMsg(tag)
+		if err != nil {
+			return err
+		}
+
+		_ = res
+	}
+
+	return nil
+}
+
+
+
+// ConvertToMSG  function
+// return MSG model for get fields data specified in output 'linked_fields'.
 //
-// WARNING: message cannot contain a same tags because for access to value use map (map cannot contain same key)
-func ConvertToMSG(input *Modification, fullMsg []byte, customSplit func(data []byte, atEOF bool)(advance int, token []byte, err error)) (*Msg, error) {
-	var msg Msg
+// NOTE: We can do without copying the structure MSG
+func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
+	tags := make(map[TagName]SliceOfTag)
 	
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
-	scanner.Split(customSplit)
+	scanner.Split(c.lineSplit)
 	
-	temp := make(map[string][]string)
 	for scanner.Scan() {
-		token := scanner.Text()
-		rowFields := strings.Split(token, input.FieldSeparator)
+		temp := make(TagValues)
+
+		token := scanner.Text() // getting string representation of row
+		rowFields := strings.Split(token, c.input.FieldSeparator)
 		
-		tag, fields := rowFields[0], rowFields[1:]
-		temp[tag] = fields
+		tag, fields := TagName(rowFields[0]), Fields(rowFields[1:])
+		if _, ok := c.input.Tags[string(tag)]; !ok {
+			return nil, fmt.Errorf(ErrUndefinedInputTag, tag)
+		}
+
+		temp[TagName(tag)] = fields
+
+		if _, ok := tags[tag]; ok {
+			tags[tag] = append(tags[tag], temp)
+
+		} else {
+			tags[tag] = make(SliceOfTag, 0, 10) // capacity is 10 because it's optimal value, which describe average rows of message 
+			tags[tag] = append(tags[tag], temp)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("convert msg to Msg struct has been unsuccesful")
+		return nil, fmt.Errorf("convert input messsge to Msg struct has been unsuccesful")
 	}
 
-	msg.Tags = temp
+	c.inMsg.Tags = tags
 
-	return &msg, nil
+	return c.inMsg, nil
 }
 
-
-// ConvertRow
-// return converted line or "skip" if specified linkedTag is "none"
-//
-// WARNING: message cannot contain a field separator, otherwise the conversion will be incorrect
-func ConvertRow(input, output *Modification, msg string, fullMsg *Msg) (string, error) {
-	currentRowFields := strings.Split(msg, input.FieldSeparator)
-
-	tag := currentRowFields[0]
-	if len(tag) >= len(currentRowFields) {
-		return "", fmt.Errorf("identify msg and split input msg has been unsuccessful") 
-	}
-
-	tagInfo, ok := input.Tags[tag]
-	if !ok {
-		return "", fmt.Errorf("tag %s not found in input modification %v", tag, input) 
-	}
-
-
-	var matchingTag string
-	for _, linkedTag := range tagInfo.Linked { // the first tag get will be taken for output
-		if linkedTag == "none" {
-			return "skip", nil 
+ 
+// GetCustomSplit function
+func GetCustomSplit(sep string) (func(data []byte, atEOF bool) (advance int, token []byte, err error)) {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			return 0, nil, nil
 		}
-
-		if _, ok := output.Tags[linkedTag]; ok {
-			matchingTag = linkedTag
-			break
-		}		
+		
+		if i := bytes.Index(data, []byte(sep)); i >= 0 {
+			return i + len(sep), data[0:i], nil
+		}
+		
+		if atEOF {
+			return len(data), data, nil
+		}
+		
+		return 0, nil, nil
 	}
-
-	if matchingTag == "" {
-		return "", fmt.Errorf("linked tag in tag %s not found in output modification %v", tag, output)
-	}
-
-
-	outputLine, err := assembleOutputRowMsg(input, output, matchingTag, fullMsg)
-	if err != nil {
-		return "", err
-	}		
-
-
-	return outputLine, nil
 }
 
 
-// assembleOutputRowMsg
-//
-//
-func assembleOutputRowMsg(input, output *Modification, matchingTag string, fullMsg *Msg) (string, error) {	
-	outputFields := output.Tags[matchingTag].Fields
+// IDENTIFY BY output Modification (field: Types) and compare it with Tags in Msg
+func IndetifyMsg(msg *Msg, input *Modification) string {
+	return ""
+}
 
-	tempLine := make([]string, output.Tags[matchingTag].FieldsNumber) // temp slice was initially filled by default value:""
-	tempLine[0] = matchingTag // first position is always placed by Tag 
+
+// GetOutOdreredTags function
+//
+// NOTE: NEED BENCHMARK + We can do without copying the slice
+func (c *Converter) GetOutOdreredTags() ([]string, error) {
+	orderedTags := make([]string, 0, 5) // capacity is 5 because it's optimal value, which describe average tags of modification 
+	
+	sotrtingSlice := make([][]string, 0, 5)
+	for tagName, tag := range c.output.Tags{
+		sotrtingSlice = append(sotrtingSlice, []string{strconv.Itoa(tag.Position), tagName})
+	}
+	
+	sort.Slice(sotrtingSlice, func(i, j int) bool {
+			left, err := strconv.Atoi(sotrtingSlice[i][0])
+			if err != nil {
+				panic(err)
+			}
+			right, err := strconv.Atoi(sotrtingSlice[j][0])
+			if err != nil {
+				panic(err)
+			}
+
+			return left < right
+		})
+	
+	for _, v := range sotrtingSlice{
+		orderedTags = append(orderedTags, v[1])
+	}
+
+	c.outOdreredTags = orderedTags
+
+	return c.outOdreredTags, nil
+}
+
+
+
+// AssembleOutputRowMsg function
+//
+// Creates outLine and fills it. Also inserts component separators in fields with components.
+func (c *Converter) AssembleOutputRowMsg(outTag string) (string, error) {	
+	outputFields := c.output.Tags[outTag].Fields
+
+	tempLine := make([]string, c.output.Tags[outTag].FieldsNumber) // temp slice was initially filled by default value:""
+	tempLine[0] = outTag // first position is always placed by Tag 
+
 
 	for fieldName, fieldInfo := range outputFields { // go through the fields of the output structure
+		if fieldInfo.ComponentsNumber < 0 {
+			return "", fmt.Errorf(ErrNegativeComponentsNumber, fieldName)
+		}
 
 		if fieldInfo.ComponentsNumber > 0 { // min. count of components is 2
-			
 			if fieldInfo.ComponentsNumber == 1 {
-				return "", fmt.Errorf("Commponent count can be equal to 0 or more than 1, else it's field hasn't have components")
-			} else {
+				return "", fmt.Errorf(ErrWrongComponentsNumber, fieldName)
+			
+			} else { 
 				outputPosition := int(fieldInfo.Position) - 1 // we must work with index
 				if int(outputPosition) == 0 { // field outputPosition cannot be 0, because 0 position is Tag
-					return "", fmt.Errorf("incorrect position %d by fieldName %s", outputPosition, fieldName)
+					return "", fmt.Errorf(ErrWrongFieldPosition, outputPosition + 1, fieldName)
 				}
 
-				if tempLine[outputPosition] == "" { // we must save previous data 
-					tempLine[outputPosition] = strings.Repeat(output.ComponentSeparator, fieldInfo.ComponentsNumber - 1) // count separator is ComponentsNumber - 1
+				if tempLine[outputPosition] == "" { // we must save previous data that's why we checking current value of field 
+					tempLine[outputPosition] = strings.Repeat(c.output.ComponentSeparator, fieldInfo.ComponentsNumber - 1) // count separator is ComponentsNumber - 1
 				} 
 			}
 		}
 
-		err := setFieldInOutputRow(input, output, fieldName, &fieldInfo, tempLine, fullMsg)
+		err := c.setFieldInOutputRow(fieldName, &fieldInfo, tempLine)
 		if err != nil {
 			return "", err
 		}
 	}
 
 	// Join tempLine by FieldSeparator
-	res := strings.Join(tempLine, output.FieldSeparator)
+	res := strings.Join(tempLine, c.output.FieldSeparator) // Suggestion: make this optional
 
 	return res, nil 
 } 
@@ -130,14 +214,13 @@ func assembleOutputRowMsg(input, output *Modification, matchingTag string, fullM
 // setFieldInOutputRow
 //
 //
-func setFieldInOutputRow(in, out *Modification, fN string, fI *Field, tL []string, fullMsg *Msg) error {
-
+func (c *Converter) setFieldInOutputRow(fN string, fI *Field, tL []string) error {
 	outputPosition := fI.Position - 1 // we must work with index
 	if int(outputPosition) == 0 { // field outputPosition cannot be 0, because 0 position is Tag
 		return fmt.Errorf("incorrect position %f by fieldName %s", outputPosition, fN)
 	}
 
-	LinkedFields := fI.Linked // get list of avalible field links
+	LinkedFields := fI.Linked // get list of avalible field links such as [tag-position]
 
 	switch len(LinkedFields) {
 	case 1:
