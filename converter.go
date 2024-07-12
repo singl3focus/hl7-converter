@@ -3,8 +3,11 @@ package hl7converter
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
+	"log"
 	"math"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,55 +17,67 @@ type Converter struct {
 	// Data parsed from config.
 	// goal: find metadata(position, default_value, components_number, linked and data about Tags, Separators)
 	// about field so that then get value some field.
-	input, output *Modification 
+	Input, Output *Modification
 
 	// For effective split by rows of input message with help "bufio.Scanner"
-	lineSplit func(data []byte, atEOF bool)(advance int, token []byte, err error)
+	LineSplit func(data []byte, atEOF bool) (advance int, token []byte, err error)
 
 	// Convertred structure of input message for fast find a needed field by tag
-	inMsg *Msg 
-
-	// Slice with with ordered tags for following the structure of the message
-	outOdreredTags []string
+	InMsg *Msg
 }
 
-
 func NewConverter(passedInput, passedOutput *Modification) (*Converter, error) {
-	converter := &Converter{
-		input: passedInput,
-		output: passedOutput,
+	msg := &Msg{
+		Tags: make(map[TagName]SliceOfTag),
+	}
 
-		lineSplit: GetCustomSplit(passedInput.LineSeparator),
+	converter := &Converter{
+		Input:  passedInput,
+		Output: passedOutput,
+
+		LineSplit: GetCustomSplit(passedInput.LineSeparator),
+
+		InMsg: msg,
 	}
 
 	return converter, nil
 }
 
+var (
+	pointerToIndexInMultiTag = 0
+	pointerToTag  = ""
+)
 
-func (c *Converter) Convert(fullMsg []byte) (error) {
+
+
+func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 	_, err := c.ConvertToMSG(fullMsg) // fill inMsg in Converter structure
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = c.GetOutOdreredTags() // fill OutOdreredTags in Converter structure
-	if err != nil {
-		return err
-	}
+	sliceSplitedRows := make([][]string, 0, 10)
 
-	for _, tag := range c.outOdreredTags{
-		res, err := c.AssembleOutputRowMsg(tag)
-		if err != nil {
-			return err
+	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
+	scanner.Split(c.LineSplit)
+
+	for scanner.Scan() {
+		token := scanner.Text() // getting string representation of every row
+
+		row, err := c.ConvertRow(token)
+		if errors.Is(err, ErrOutputTagNotFound) {
+			log.Println("BE CAREFUL: linked output tag not found. ROW:", token)
+		} else if err != nil {
+			return nil, err
 		}
 
-		_ = res
+		if len(row) != 0 {
+			sliceSplitedRows = append(sliceSplitedRows, row)
+		}
 	}
 
-	return nil
+	return sliceSplitedRows, nil
 }
-
-
 
 // ConvertToMSG  function
 // return MSG model for get fields data specified in output 'linked_fields'.
@@ -70,18 +85,18 @@ func (c *Converter) Convert(fullMsg []byte) (error) {
 // NOTE: We can do without copying the structure MSG
 func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
 	tags := make(map[TagName]SliceOfTag)
-	
+
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
-	scanner.Split(c.lineSplit)
-	
+	scanner.Split(c.LineSplit)
+
 	for scanner.Scan() {
 		temp := make(TagValues)
 
 		token := scanner.Text() // getting string representation of row
-		rowFields := strings.Split(token, c.input.FieldSeparator)
-		
+		rowFields := strings.Split(token, c.Input.FieldSeparator)
+
 		tag, fields := TagName(rowFields[0]), Fields(rowFields[1:])
-		if _, ok := c.input.Tags[string(tag)]; !ok {
+		if _, ok := c.Input.Tags[string(tag)]; !ok {
 			return nil, fmt.Errorf(ErrUndefinedInputTag, tag)
 		}
 
@@ -91,7 +106,7 @@ func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
 			tags[tag] = append(tags[tag], temp)
 
 		} else {
-			tags[tag] = make(SliceOfTag, 0, 10) // capacity is 10 because it's optimal value, which describe average rows of message 
+			tags[tag] = make(SliceOfTag, 0, 10) // capacity is 10 because it's optimal value, which describe average rows of message
 			tags[tag] = append(tags[tag], temp)
 		}
 	}
@@ -100,158 +115,224 @@ func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
 		return nil, fmt.Errorf("convert input messsge to Msg struct has been unsuccesful")
 	}
 
-	c.inMsg.Tags = tags
+	c.InMsg.Tags = tags
 
-	return c.inMsg, nil
+	return c.InMsg, nil
 }
 
- 
 // GetCustomSplit function
-func GetCustomSplit(sep string) (func(data []byte, atEOF bool) (advance int, token []byte, err error)) {
+func GetCustomSplit(sep string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
 			return 0, nil, nil
 		}
-		
+
 		if i := bytes.Index(data, []byte(sep)); i >= 0 {
 			return i + len(sep), data[0:i], nil
 		}
-		
+
 		if atEOF {
 			return len(data), data, nil
 		}
-		
+
 		return 0, nil, nil
 	}
 }
 
-
-// IDENTIFY BY output Modification (field: Types) and compare it with Tags in Msg
+// IndetifyMsg IDENTIFY by output Modification (field: Types) and compare it with Tags in Msg
 func IndetifyMsg(msg *Msg, input *Modification) string {
+	actualTags := make([]string, 0, 10)
+	for Tag, _ := range msg.Tags {
+		actualTags = append(actualTags, string(Tag))
+	}
+	sort.Strings(actualTags) // we sort in order to compare tags regardless of the positions of the tags
+
+	for TypeName, Tags := range input.Types {
+		sort.Strings(Tags)
+		if reflect.DeepEqual(actualTags, Tags) {
+			return TypeName
+		}
+	}
+
 	return ""
 }
 
 
-// GetOutOdreredTags function
+// SetValueToField
 //
-// NOTE: NEED BENCHMARK + We can do without copying the slice
-func (c *Converter) GetOutOdreredTags() ([]string, error) {
-	orderedTags := make([]string, 0, 5) // capacity is 5 because it's optimal value, which describe average tags of modification 
-	
-	sotrtingSlice := make([][]string, 0, 5)
-	for tagName, tag := range c.output.Tags{
-		sotrtingSlice = append(sotrtingSlice, []string{strconv.Itoa(tag.Position), tagName})
-	}
-	
-	sort.Slice(sotrtingSlice, func(i, j int) bool {
-			left, err := strconv.Atoi(sotrtingSlice[i][0])
-			if err != nil {
-				panic(err)
-			}
-			right, err := strconv.Atoi(sotrtingSlice[j][0])
-			if err != nil {
-				panic(err)
-			}
-
-			return left < right
-		})
-	
-	for _, v := range sotrtingSlice{
-		orderedTags = append(orderedTags, v[1])
-	}
-
-	c.outOdreredTags = orderedTags
-
-	return c.outOdreredTags, nil
+// receive 
+//
+func (c *Converter) SetValueToField(msg *[][]string, rowIndx, fieldfIndx int, value string) {
+	(*msg)[rowIndx][fieldfIndx] = value 
 }
 
+// ConvertRow
+//
+// WARNING: message cannot contain a field separator, otherwise the conversion will be incorrect
+func (c *Converter) ConvertRow(row string) ([]string, error) {
+	var tag string
+	for i, ch := range row {
+		if string(ch) == c.Input.FieldSeparator {
+			tag = row[:i]
+			break
+		}
+	}
+	if tag == "" {
+		return nil, fmt.Errorf(ErrWrongTagRow, row)
+	}
 
+	tagInfo, ok := c.Input.Tags[tag]
+	if !ok {
+		return nil, fmt.Errorf(ErrInputTagModificationNotFound, tag, c.Input)
+	}
+
+	err := c.MovePointerIndx(tag) // IMPORTANT ELEMENT TO MOVE POINTER FOR MULTI TAG
+	if err != nil {
+		return nil, err
+	}
+
+	var matchingTag string
+	for _, linkedTag := range tagInfo.Linked { // the first tag get will be taken for output
+		if _, ok := c.Output.Tags[linkedTag]; ok {
+			matchingTag = linkedTag
+			break
+		}
+	}
+	if matchingTag == "" {
+		return nil, ErrOutputTagNotFound
+	}
+
+	outputLine, err := c.assembleOutputRowMsg(matchingTag)
+	if err != nil {
+		return nil, err
+	}
+
+	return outputLine, nil
+}
 
 // AssembleOutputRowMsg function
 //
 // Creates outLine and fills it. Also inserts component separators in fields with components.
-func (c *Converter) AssembleOutputRowMsg(outTag string) (string, error) {	
-	outputFields := c.output.Tags[outTag].Fields
+func (c *Converter) assembleOutputRowMsg(outTag string) ([]string, error) {
+	outputFields := c.Output.Tags[outTag].Fields
 
-	tempLine := make([]string, c.output.Tags[outTag].FieldsNumber) // temp slice was initially filled by default value:""
-	tempLine[0] = outTag // first position is always placed by Tag 
-
+	tempLine := make([]string, c.Output.Tags[outTag].FieldsNumber) // temp slice was initially filled by default value:""
+	tempLine[0] = outTag                                           // first position is always placed by Tag
 
 	for fieldName, fieldInfo := range outputFields { // go through the fields of the output structure
 		if fieldInfo.ComponentsNumber < 0 {
-			return "", fmt.Errorf(ErrNegativeComponentsNumber, fieldName)
+			return nil, fmt.Errorf(ErrNegativeComponentsNumber, fieldName)
 		}
 
 		if fieldInfo.ComponentsNumber > 0 { // min. count of components is 2
 			if fieldInfo.ComponentsNumber == 1 {
-				return "", fmt.Errorf(ErrWrongComponentsNumber, fieldName)
-			
-			} else { 
+				return nil, fmt.Errorf(ErrWrongComponentsNumber, fieldName)
+
+			} else {
 				outputPosition := int(fieldInfo.Position) - 1 // we must work with index
-				if int(outputPosition) == 0 { // field outputPosition cannot be 0, because 0 position is Tag
-					return "", fmt.Errorf(ErrWrongFieldPosition, outputPosition + 1, fieldName)
+				if int(outputPosition) == 0 {                 // field outputPosition cannot be 0, because 0 position is Tag
+					return nil, fmt.Errorf(ErrWrongFieldPosition, outputPosition+1, fieldName)
 				}
 
-				if tempLine[outputPosition] == "" { // we must save previous data that's why we checking current value of field 
-					tempLine[outputPosition] = strings.Repeat(c.output.ComponentSeparator, fieldInfo.ComponentsNumber - 1) // count separator is ComponentsNumber - 1
-				} 
+				if tempLine[outputPosition] == "" { // we must save previous data that's why we checking current value of field
+					tempLine[outputPosition] = strings.Repeat(c.Output.ComponentSeparator, fieldInfo.ComponentsNumber-1) // count separator is ComponentsNumber - 1
+				}
 			}
 		}
 
 		err := c.setFieldInOutputRow(fieldName, &fieldInfo, tempLine)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	// Join tempLine by FieldSeparator
-	res := strings.Join(tempLine, c.output.FieldSeparator) // Suggestion: make this optional
-
-	return res, nil 
-} 
+	return tempLine, nil
+}
 
 
-// setFieldInOutputRow
-//
-//
+func (c *Converter) MovePointerIndx(tag string) error {
+	tagsList, ok := c.InMsg.Tags[TagName(tag)]
+	if !ok {
+		return fmt.Errorf(ErrInputTagMSGNotFound, tag, c.InMsg)
+	}
+	if len(tagsList) == 0 {
+		return fmt.Errorf(ErrWrongSliceOfTag, tag)
+	}
+	if len(tagsList) == 1 {
+		return nil // ignore if tagsList is 1
+	}
+
+	pointerToIndexInMultiTag++
+	return nil
+}
+
+
+// WARNING: Important element
+func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
+	log.Println("Get tag for receive indx, tag:", inputTag)
+	log.Println("pointerToIndexInMultiTag:", pointerToIndexInMultiTag)
+	log.Println("pointerToTag:", pointerToTag)
+
+	tagsList, ok := c.InMsg.Tags[TagName(inputTag)]
+	if !ok {
+		return 0, fmt.Errorf(ErrInputTagMSGNotFound, inputTag, c.InMsg)
+	}
+
+	if len(tagsList) == 0 {
+		return 0, fmt.Errorf(ErrWrongSliceOfTag, inputTag)
+	}
+	if len(tagsList) == 1 {
+		log.Printf("tag: %s, return 0 index", inputTag)
+		return 0, nil
+	}
+
+	log.Println("pointerToIndexInMultiTag:", pointerToIndexInMultiTag)
+	log.Println("pointerToTag:", pointerToTag)
+	
+	log.Printf("tag: %s is Multi tag", inputTag)
+	// len(tagsList) >= 2
+	if pointerToTag == "" {
+		pointerToTag = inputTag // It's means that we meet the multi tag		
+	} else if pointerToTag != inputTag {
+		return 0, fmt.Errorf(ErrManyMultiTags, pointerToTag, inputTag)		
+	}
+		
+	log.Println("pointerToIndexInMultiTag(must increase on 1 point):", pointerToIndexInMultiTag)
+	log.Println("pointerToTag:", pointerToTag)
+
+	log.Printf("tag: %s, return %d index", inputTag, pointerToIndexInMultiTag)
+	// we reduce pointer on 1 point because pointer has already moved in the code above .
+	return pointerToIndexInMultiTag - 1, nil
+}
+
+
+
+
+// setFieldInOutputRow is distributing of fields by linked fields number
 func (c *Converter) setFieldInOutputRow(fN string, fI *Field, tL []string) error {
 	outputPosition := fI.Position - 1 // we must work with index
-	if int(outputPosition) == 0 { // field outputPosition cannot be 0, because 0 position is Tag
+	if int(outputPosition) == 0 {     // field outputPosition cannot be 0, because 0 position is Tag
 		return fmt.Errorf("incorrect position %f by fieldName %s", outputPosition, fN)
 	}
 
 	LinkedFields := fI.Linked // get list of avalible field links such as [tag-position]
-
 	switch len(LinkedFields) {
 	case 1:
-		// Get info about linked Field
-		linkedInfo := strings.Split(LinkedFields[0], link_separator) // len must be 2 (tag - 1, fieldName - 2)
-		if len(linkedInfo) != 2 {
-			return fmt.Errorf("specified field link is incorrect, field %s", fN)
-		}
-		
-		linkedTag, linkedFieldName := linkedInfo[0], linkedInfo[1]
-
-		// Get info about linked Field
-		inFieldInfo, ok := in.Tags[linkedTag].Fields[linkedFieldName]
-
-		if ok { // if we have not found the field, we set the default value
-			err := setValueToField(in, out, fI, inFieldInfo.Position, tL, fullMsg.Tags[linkedTag])
-			if err == nil { // if set value has been unsecseful try set default
-				break
-			}
+		err := c.setValueToFieldWithOneLink(fN, fI, tL)
+		if err == nil {
+			return nil
 		}
 
-		fallthrough // if set value return err
+		fallthrough // if setValueToFieldWithOneLink has been unsuccessful, try set default value
 
 	case 0:
-		err := setDefaultValueToField(in, out, fN, fI, tL)
+		err := c.setDefaultValueToField(fN, fI, tL)
 		if err != nil {
 			return err
 		}
-	
+
 	default:
-		err := setValueToFieldWithMoreLinks(in, out, fI, tL, fullMsg)
+		err := c.setValueToFieldWithMoreLinks(fN, fI, tL)
 		if err != nil {
 			return err
 		}
@@ -260,55 +341,53 @@ func (c *Converter) setFieldInOutputRow(fN string, fI *Field, tL []string) error
 	return nil
 }
 
-
 // setDefaultValueToField
-//
-//
-func setDefaultValueToField(in, out *Modification, fN string, fI *Field, tL []string) error {
+func (c *Converter) setDefaultValueToField(fN string, fI *Field, tL []string) error {
 	outputPosition := fI.Position - 1 // cannot be equal to 0
-	
+
 	defaultValue := fI.DefaultValue
 	if defaultValue != "" {
 		pos := int(outputPosition) // integer representation of a number
+
 		if isInt(outputPosition) { // Check that postion int or float
 			tL[pos] = defaultValue
 		} else {
-			setFieldComponent(out, tL, pos, getTenth(outputPosition), defaultValue)
+			c.setFieldComponent(tL, pos, getTenth(outputPosition), defaultValue)
 		}
 	} else {
-		return fmt.Errorf("fieldName %s in output modification %v hasn't have a linked_fields Or default value is not specified Or not found in linked_fields", fN, in)
+		return fmt.Errorf("fieldName %s in output modification %v hasn't have a linked_fields Or default value is not specified Or not found in linked_fields", fN, c.Input)
 	}
 
 	return nil
 }
 
-
 // setValueToField
 //
+// param::rowFields - it's slice contains only fields without tag
+//
 // NOTE: checking inputPosition is absent
-func setValueToField(in, out  *Modification, fI *Field, inPos float64, tL []string, rowFields []string) error {
+func (c *Converter) setValueToField(fI *Field, inPos float64, tL []string, rowFields []string) error {
 	outputPosition := fI.Position - 1 // cannot be equal to 0
-	inputPosition := inPos - 2 // we subtract 2 because when we split the input msg, we separated those, and also we need to move on to the indexes
+	inputPosition := inPos - 2        // we subtract 2 because when we split the input msg, we separated those, and also we need to move on to the indexes
 
 	// Check that postion int or float
 	if isInt(inputPosition) && isInt(outputPosition) { // if inputPosition and outputPosition Int
 		posOu := int(outputPosition)
 		posInp := int(inputPosition)
 
-		tL[posOu] = rowFields[posInp]	
+		tL[posOu] = rowFields[posInp]
 
 	} else if isInt(inputPosition) { // if inputPosition Int
 		posInp := int(inputPosition)
 
-
-		setFieldComponent(out, tL, int(outputPosition), getTenth(outputPosition), rowFields[posInp])
+		c.setFieldComponent(tL, int(outputPosition), getTenth(outputPosition), rowFields[posInp])
 
 	} else if isInt(outputPosition) { // if outputPosition Int
-		posInp := int(inputPosition) // round to less number (3.8 -> 3)
-		subposInp := getTenth(inputPosition) // position in field 
+		posInp := int(inputPosition)         // round to less number (3.8 -> 3)
+		subposInp := getTenth(inputPosition) // position in field
 		posOu := int(outputPosition)
 
-		val, err := getFieldComponent(in, rowFields, posInp, subposInp)
+		val, err := c.getFieldComponent(rowFields, posInp, subposInp)
 		if err != nil || val == "" {
 			return err
 		}
@@ -316,119 +395,118 @@ func setValueToField(in, out  *Modification, fI *Field, inPos float64, tL []stri
 		tL[posOu] = val
 
 	} else { // if inputPosition and outputPosition NOT Int
-		posInp := int(inputPosition) // round to less number (11.2 -> 11)
-		subposInp := getTenth(inputPosition) // position in field 
+		posInp := int(inputPosition)         // round to less number (11.2 -> 11)
+		subposInp := getTenth(inputPosition) // position in field
 
-		val, err := getFieldComponent(in, rowFields, posInp, subposInp)
+		val, err := c.getFieldComponent(rowFields, posInp, subposInp)
 		if err != nil || val == "" {
 			return err
 		}
 
-		setFieldComponent(out, tL, int(outputPosition), getTenth(outputPosition), val)
+		c.setFieldComponent(tL, int(outputPosition), getTenth(outputPosition), val)
 	}
 
 	return nil
 }
 
+
+func (c *Converter) setValueToFieldWithOneLink(fN string, fI *Field, tL []string) error {
+	// Get info about linked Field
+	linkedInfo := strings.Split(fI.Linked[0], linkToFieldSeparator) // len must be 2 (tag - 1, fieldPosition - 2)
+	if len(linkedInfo) != 2 {
+		return fmt.Errorf("specified field link is incorrect, field %s", fN)
+	}
+
+	linkedTag, linkedFieldPosition := linkedInfo[0], linkedInfo[1]
+
+	indxToRow, err := c.GetPointerIndx(linkedTag)
+	if err != nil {
+		return err
+	}
+
+	position, err := strconv.ParseFloat(linkedFieldPosition, 64)
+	if err != nil {
+		return err
+	}
+
+	err = c.setValueToField(fI, position, tL, (c.InMsg.Tags[TagName(linkedTag)][indxToRow])[TagName(linkedTag)])
+	if err != nil {
+		return err 
+	}
+
+	return nil
+}
 
 // setValueToFieldWithMoreLinks
-func setValueToFieldWithMoreLinks(in, out *Modification, fI *Field,  tL []string, fullMsg *Msg) error {
+func (c *Converter) setValueToFieldWithMoreLinks(fN string, fI *Field, tL []string) error {
 	outputPosition := fI.Position - 1 // cannot be equal to 0
+
 	linkedFields := fI.Linked
-	lenLinked := len(linkedFields) // ADD: 
+	lenLinked := len(linkedFields)
+
+	line := ""
+	for i, inputLinkField := range linkedFields { // MANDATORY: len linked fields more than 1
+		linkedInfo := strings.Split(inputLinkField, linkToFieldSeparator) // len must be 2 (tag - 1, fieldPosition - 2)
+		if len(linkedInfo) != 2 {
+			return fmt.Errorf("specified field link is incorrect, field %s", fN)
+		}
+
+		linkedTag, linkedFieldPosition := linkedInfo[0], linkedInfo[1]
+
+		indxToRow, err := c.GetPointerIndx(linkedTag) // WRONG CYCLE CALLS OF GET POINTER
+		if err != nil {
+			return err
+		}
+
+		inpPos, err := strconv.ParseFloat(linkedFieldPosition, 64) // only for check
+		if err != nil {
+			return err
+		}
+		inpPosInt := int(inpPos) - 2 // represantation of index, for get value from rowFields by tag
+
+		if isInt(inpPos) {
+			line += ((c.InMsg.Tags[TagName(linkedTag)][indxToRow])[TagName(linkedTag)])[inpPosInt]
+
+		} else {
+			subposInp := getTenth(inpPos)
+			val, err := c.getFieldComponent((c.InMsg.Tags[TagName(linkedTag)][indxToRow])[TagName(linkedTag)], inpPosInt, subposInp)
+			if err != nil || val == "" {
+				return err
+			}
+
+			line += val
+		}
+
+		if i != (lenLinked - 1) { // The line should not end by separator
+			line += c.Output.ComponentSeparator
+		}
+	}
 
 	if isInt(outputPosition) {
-		line := ""
-		for i, inputField := range linkedFields { // Len Linked fields more than 1
-
-			linkedInfo := strings.Split(inputField, link_separator) // len must be 2 (tag - 1, fieldName - 2)
-			if len(linkedInfo) != 2 {
-				return fmt.Errorf("specified field link is incorrect, linked_field %s", inputField)
-			}
-			
-			linkedTag, linkedFieldName := linkedInfo[0], linkedInfo[1]
-
-
-			inpPos := in.Tags[linkedTag].Fields[linkedFieldName].Position // only for check
-			inpPosInt := int(inpPos) - 2 // represantation of index, for putting
-
-			if isInt(inpPos) {
-				line += fullMsg.Tags[linkedTag][inpPosInt]
-
-			} else {
-				subposInp := getTenth(inpPos)
-				val, err := getFieldComponent(in, fullMsg.Tags[linkedTag], inpPosInt, subposInp)
-				if err != nil || val == "" {
-					return err
-				}
-
-				line += val
-			}
-			
-
-			if i != (lenLinked - 1) { // The line should not end by separator
-				line += out.ComponentSeparator
-			}  
-		}
-
 		tL[int(outputPosition)] = line
-
 	} else {
-		line := ""
-		for i, inputField := range linkedFields { // Len Linked fields more than 1
-
-			linkedInfo := strings.Split(inputField, link_separator) // len must be 2 (tag - 1, fieldName - 2)
-			if len(linkedInfo) != 2 {
-				return fmt.Errorf("specified field link is incorrect, linked_field %s", inputField)
-			}
-			
-			linkedTag, linkedFieldName := linkedInfo[0], linkedInfo[1]
-
-
-			inpPos := in.Tags[linkedTag].Fields[linkedFieldName].Position // only for check
-			inpPosInt := int(inpPos) - 2 // represantation of index, for putting
-
-			if isInt(inpPos) {
-				line += fullMsg.Tags[linkedTag][inpPosInt]
-
-			} else {
-				subposInp := getTenth(inpPos)
-				val, err := getFieldComponent(in, fullMsg.Tags[linkedTag], inpPosInt, subposInp)
-				if err != nil || val == "" {
-					return err
-				}
-
-				line += val
-			}
-			
-
-			if i != (lenLinked - 1) { // The line should not end by separator
-				line += out.ComponentSeparator
-			}  
-		}
-
-		setFieldComponent(out, tL, int(outputPosition), getTenth(outputPosition), line)
+		c.setFieldComponent(tL, int(outputPosition), getTenth(outputPosition), line)
 	}
 
 	return nil
 }
-
 
 // setFieldComponent
 //
 // NOTE: be careful with subpos
-func setFieldComponent(out *Modification, tL []string, pos, subPos int, value string) {
-	fieldComponents := strings.Split(tL[pos], out.ComponentSeparator)
-	fieldComponents[subPos - 1] = value
+func (c *Converter) setFieldComponent(tL []string, pos, subPos int, value string) {
+	fieldComponents := strings.Split(tL[pos], c.Output.ComponentSeparator)
+	fieldComponents[subPos-1] = value
 
-	res := strings.Join(fieldComponents, out.ComponentSeparator)
+	res := strings.Join(fieldComponents, c.Output.ComponentSeparator)
 	tL[pos] = res
 }
 
-
 // getFieldComponent
-func getFieldComponent(in *Modification, rowFields []string, posInp, subposInp int) (string, error) {
-	val := strings.Split(rowFields[posInp], in.ComponentSeparator)[subposInp - 1] // Be careful with subpos
+//
+// NOTE: be careful with subpos
+func (c *Converter) getFieldComponent(rowFields []string, posInp, subposInp int) (string, error) {
+	val := strings.Split(rowFields[posInp], c.Input.ComponentSeparator)[subposInp-1]
 	if len(val) >= len(rowFields[posInp]) {
 		return "", fmt.Errorf("incorrect field %s, the field component could not be pulled out", rowFields[posInp])
 	}
@@ -436,15 +514,13 @@ func getFieldComponent(in *Modification, rowFields []string, posInp, subposInp i
 	return val, nil
 }
 
-
-
 // isInt return that number(float64) is Int or not
 func isInt(numb float64) bool {
 	return math.Mod(numb, 1.0) == 0
 }
 
-// getTenth return tenth of number(float64) 
+// getTenth return tenth of number(float64)
 func getTenth(numb float64) int {
-	x := math.Round(numb * 100) / 100
-	return int(x * 10) % 10
+	x := math.Round(numb*100) / 100
+	return int(x*10) % 10
 }

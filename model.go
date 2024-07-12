@@ -13,8 +13,8 @@ type Modification struct {
 }
 
 type Tag struct {
-	Position     int `json:"position"`
-	FieldsNumber int `json:"fields_number"`
+	Linked       []string `json:"linked"`
+	FieldsNumber int      `json:"fields_number"`
 
 	Fields map[string]Field `json:"fields"`
 }

@@ -1,7 +1,7 @@
 package hl7converter_test
 
 import (
-	"bytes"
+	"strings"
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter"
@@ -11,11 +11,12 @@ const (
 	success = "\u2713"
 	failed  = "\u2717"
 
-	CR = "^"
+	CR = "\r"
 )
 
 var (
 	configFilename        = "config.json"
+
 	configInputBlockType  = "hl7_astm_hbl"
 	configOutputBlockType = "hl7_mindray_hbl"
 
@@ -31,12 +32,19 @@ var (
 		"P|1||||^||||||||||||||||||||||||||||\n" +
 		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
 		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
+		"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
 		"L|1|N")
 
-	outputMsgHBL = []byte("MSH|^~\\&|Manufacturer|Model|||20220327||ORU~R01||P|2.3.1||||||ASCII|" + CR +
-		"PID||142212|||||||||||||||||||||||||||" + CR + "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" +
-		CR + "OBX|||Urina4~screening~tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||")
+	outputMsgHBL = []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|" + CR +
+		"PID||142212|||||||||||||||||||||||||||" + CR +
+		"OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" + CR +
+		"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||" + CR + 
+		"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||")
 
+	outputMsgTypeHBL = "Results"	
+)
+
+var (
 	inputNewMsgHBL = []byte("MSH|~\\&|Manufacturer|Model|||20220327||ORU~R01||P|2.3.1||||||ASCII|" + CR +
 	"PID||142212|||||||||||||||||||||||||||" + CR + "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" +
 	CR + "OBX|||Urina4~screening~tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||")	
@@ -53,7 +61,7 @@ var (
 
 
 	NEWinpCL8000 = []byte("H|\\~&|||eCL8000~00.00.03~I05A16100023|||||||RQ|1394-97|20191105190721" + CR +
-	"Q|1|123~134144||||||||||") // some transformations (^ => ~)
+	"Q|1|123~134144||||||||||")
 )
 
 
@@ -79,131 +87,42 @@ var (
 )
 
 
-func TestFullConvertMsg(t *testing.T) {
-	ready, err := hl7converter.FullConvertMsg(configFilename, configInputBlockType, configOutputBlockType, inputMsgHBL)
+func TestConvertWithConverter(t *testing.T) {
+	ready, msgType, err := hl7converter.ConvertWithConverter(configFilename, configInputBlockType, configOutputBlockType, inputMsgHBL)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, msg := range ready {
-		t.Log("Result (frame):", string(msg))
+	res := make([]byte, 0, 1024)
+	for i, rowFields := range ready {
+		t.Logf("%d row: %v\n", i+1, rowFields)
+		
+		readyRow := strings.Join(rowFields, "|")
+		t.Logf("%d row: %v\n", i+1, readyRow)
+
+		res = append(res, []byte(readyRow)...)
+
+		if i < (len(ready) - 1) {
+			res = append(res, []byte(CR)...)
+		}
 	}
 
-	res := bytes.Join(ready, []byte(CR))
-
-	if !bytes.Equal(res, outputMsgHBL) {
-		t.Fatal(failed, "Ouput msg has been wrong converted")
-	}
-
-	t.Log("New checking")
-
-	ready, err = hl7converter.FullConvertMsg(configFilename, configOutputBlockType, configInputBlockType, inputNewMsgHBL)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, msg := range ready {
-		t.Log("Result (frame):", string(msg))
-	}
-
-	res = bytes.Join(ready, []byte("\n"))
-
-	if !bytes.Equal(res, outputNewMsgHBL) {
-		t.Fatal(failed, "Ouput msg has been wrong converted")
-	}
-
-	t.Log("New checking")
-
-	ready, err = hl7converter.FullConvertMsg(configFilename, configInputBlockType2, configOutputBlockType2, inMsgHL7CL1200)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, msg := range ready {
-		t.Log("Result (frame):", string(msg))
-	}
-
-	t.Log("New checking")
-
-	ready, err = hl7converter.FullConvertMsg(configFilename, "astm_cl_8000", "access_cl_8000", NEWinpCL8000)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, msg := range ready {
-		t.Log("Result (frame):", string(msg))
+	t.Log("message type:", msgType)
+	if msgType != outputMsgTypeHBL {
+		t.Fatal("message type  is wrong")
 	}
 	
+	if !(string(res) == string(outputMsgHBL)) {
+		t.Fatal("converted msg is wrong")
+	}
+
+	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
 
 	t.Log(success, "TestConvertMsg right")
 }
 
 
-func TestFullConvertMsgWithSameTags(t *testing.T) {
-	readyMsgs, err := hl7converter.FullConvertMsgWithSameTags(configFilename, configInputBlockType2, configOutputBlockType2, inMsgHL7CL1200Mult, "OBX")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, msg := range readyMsgs {
-		t.Log("Result:", string(msg))
-	}
-
-
-	var finalLine string
-
-	for i, msg := range readyMsgs {
-		breakL := false
-		if (i + 1) % 4 == 0 {
-			finalLine += string(msg) // it's line with same tag and we get it and add to finalLine 
-			breakL = true
-		} else if i < 3 {
-			finalLine += string(msg) // it's service tags (it's duplicate in every msg)
-			breakL = true
-		} else {
-			breakL = false
-		}
-
-		if i != (len(readyMsgs) - 1) && breakL{
-			finalLine += "\n"
-		}
-	}
-
-	t.Log("Final result: ", finalLine)
-
-
-	// _______________________________________
-
-	readyMsgs, err = hl7converter.FullConvertMsgWithSameTags(configFilename, configInputBlockType3, configOutputBlockType3, inMsgECL8000, "R")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, msg := range readyMsgs {
-		t.Log("Result:", string(msg))
-	}
-
-
-	t.Logf("%s TestConvertMsg right", success)
-}
-
-
 func BenchmarkConvertMsg(b *testing.B) {
-	ready, err := hl7converter.FullConvertMsg(configFilename, configInputBlockType, configOutputBlockType, inputMsgHBL)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	for _, msg := range ready {
-		b.Log("Result (frame):", string(msg))
-	}
-
-	res := bytes.Join(ready, []byte(CR))
-
-	if !bytes.Equal(res, outputMsgHBL) {
-		b.Fatal(failed, "Ouput msg has been wrong converted")
-	}
-
 	b.Logf("%s BenchmarkConvertMsg right", success)
 }
 
