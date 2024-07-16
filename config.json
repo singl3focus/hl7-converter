@@ -1,14 +1,14 @@
 {
     "hl7_astm_hbl": {
-        "Component_separator": "^",
-        "Field_separator": "|",
-        "Line_separator": "\n",
+        "component_separator": "^",
+        "field_separator": "|",
+        "line_separator": "\n",
 
-        "Types": {
+        "types": {
             "Results": ["H", "P", "O", "R", "L"]
         },
 
-        "Tags" : {
+        "tags" : {
             "H": {
                 "linked": ["MSH"],
                 "fields_number": 14,
@@ -31,6 +31,7 @@
                     }
                 }
             },
+            
             "P": {
                 "linked": ["PID"],
                 "fields_number": 31,
@@ -99,15 +100,15 @@
     },
 
     "hl7_mindray_hbl" : {
-        "Component_separator": "^",
-        "Field_separator": "|",
-        "Line_separator": "\r",
+        "component_separator": "^",
+        "field_separator": "|",
+        "line_separator": "\r",
 
-        "Types": {
+        "types": {
             "Results": ["MSH", "PID", "OBR", "OBX"]
         },
 
-        "Tags" : {
+        "tags" : {
             "MSH": {
                 "linked": ["H"],
                 "fields_number": 19,
@@ -200,6 +201,4 @@
             }
         }
     }       
-
-    
 }

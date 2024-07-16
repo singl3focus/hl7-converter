@@ -3,26 +3,40 @@ package hl7converter
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 )
 
 // ConvertWithConverter function
-func ConvertWithConverter(cfgName, cfgInBlockName, cfgOutBlockName string, msg []byte) ([][]string, string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	configPath := filepath.Join(wd, cfgName)
+//
+// It's just an example of how convert some data, you can use it as the basics for your conversion
+func ConvertWithConverter(schemaPath, cfgPath, cfgInBlockName, cfgOutBlockName string, msg []byte, format string) ([][]string, string, error) {
+	var inputModification *Modification
+	var outputModification *Modification
+	var err error
 
-	inputModification, err := ReadJSONConfigBlock(configPath, cfgInBlockName)
-	if err != nil || inputModification == nil {
-		log.Fatal(err)
-	}
 
-	outputModification, err := ReadJSONConfigBlock(configPath, cfgOutBlockName)
-	if err != nil || outputModification == nil {
-		log.Fatal(err)
+	switch format {
+	case "json": 
+		inputModification, err = ReadJSONConfigBlock(schemaPath, cfgPath, cfgInBlockName)
+		if err != nil || inputModification == nil {
+			log.Fatal(err)
+		}
+
+		outputModification, err = ReadJSONConfigBlock(schemaPath, cfgPath, cfgOutBlockName)
+		if err != nil || outputModification == nil {
+			log.Fatal(err)
+		}
+	case "yaml": 
+		inputModification, err = ReadYAMLConfigBlock(cfgPath, cfgInBlockName)
+		if err != nil || inputModification == nil {
+			log.Fatal(err)
+		}
+
+		outputModification, err = ReadYAMLConfigBlock(cfgPath, cfgOutBlockName)
+		if err != nil || outputModification == nil {
+			log.Fatal(err)
+		}
+	default:
+		return nil, "", fmt.Errorf("undefined format, receive %s", format)
 	}
 
 	c, err := NewConverter(inputModification, outputModification)
@@ -35,8 +49,9 @@ func ConvertWithConverter(cfgName, cfgInBlockName, cfgOutBlockName string, msg [
 		return nil, "", err
 	}
 
-	msgType := IndetifyMsg(c.InMsg, c.Input)
-	if msgType == "" {
+	
+	msgType, ok := IndetifyMsg(c.InMsg, c.Input)
+	if !ok {
 		return nil, "", fmt.Errorf("undefined message type, msg: %v", c.InMsg)
 	}
 	

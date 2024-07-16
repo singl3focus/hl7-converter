@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 )
 
+
+// Converter
 type Converter struct {
 	// Data parsed from config.
 	// goal: find metadata(position, default_value, components_number, linked and data about Tags, Separators)
@@ -44,11 +46,32 @@ func NewConverter(passedInput, passedOutput *Modification) (*Converter, error) {
 }
 
 var (
-	pointerToIndexInMultiTag = 0
-	pointerToTag  = ""
+	defaultPointerToIndexInMultiTag = 0
+	defaultPointerToTag = ""
+
+	pointerToIndexInMultiTag = defaultPointerToIndexInMultiTag
+	pointerToTag  = defaultPointerToTag
 )
 
 
+// AssembleOutput
+//
+// WARN: function assemble message without adding 'Output.LineSeparator' after end row.
+// If you need it just add 'LineSeparator' in returned value.
+func (c *Converter) AssembleOutput(rows [][]string) []byte {
+	var buf bytes.Buffer
+	for i, row := range rows {
+		readyRow := strings.Join(row, c.Output.FieldSeparator)
+
+		buf.WriteString(readyRow)
+
+		if i != (len(rows) - 1) {
+			buf.WriteString(c.Output.LineSeparator)
+		}
+	}
+
+	return buf.Bytes()
+}
 
 func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 	_, err := c.ConvertToMSG(fullMsg) // fill inMsg in Converter structure
@@ -66,15 +89,19 @@ func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 
 		row, err := c.ConvertRow(token)
 		if errors.Is(err, ErrOutputTagNotFound) {
-			log.Println("BE CAREFUL: linked output tag not found. ROW:", token)
+			log.Println(outTag404, token)
 		} else if err != nil {
 			return nil, err
 		}
 
 		if len(row) != 0 {
 			sliceSplitedRows = append(sliceSplitedRows, row)
+		} else {
+			log.Printf(outRowEmpty, token)
 		}
 	}
+
+	c.ResetParams()
 
 	return sliceSplitedRows, nil
 }
@@ -139,22 +166,29 @@ func GetCustomSplit(sep string) func(data []byte, atEOF bool) (advance int, toke
 	}
 }
 
-// IndetifyMsg IDENTIFY by output Modification (field: Types) and compare it with Tags in Msg
-func IndetifyMsg(msg *Msg, input *Modification) string {
-	actualTags := make([]string, 0, 10)
-	for Tag, _ := range msg.Tags {
+
+
+
+
+//      ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ - ДОБАВИТЬ АВТО СПЛИТ MSG
+
+// IndetifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg
+func IndetifyMsg(msg *Msg, modification *Modification) (string, bool) {
+	actualTags := make([]string, 0, len(msg.Tags))
+	for Tag := range msg.Tags {
 		actualTags = append(actualTags, string(Tag))
 	}
 	sort.Strings(actualTags) // we sort in order to compare tags regardless of the positions of the tags
 
-	for TypeName, Tags := range input.Types {
+	for TypeName, Tags := range modification.Types {
 		sort.Strings(Tags)
-		if reflect.DeepEqual(actualTags, Tags) {
-			return TypeName
+
+		if slices.Compare(actualTags, Tags) == 0 {
+			return TypeName, true
 		}
 	}
 
-	return ""
+	return "", false
 }
 
 
@@ -186,7 +220,8 @@ func (c *Converter) ConvertRow(row string) ([]string, error) {
 		return nil, fmt.Errorf(ErrInputTagModificationNotFound, tag, c.Input)
 	}
 
-	err := c.MovePointerIndx(tag) // IMPORTANT ELEMENT TO MOVE POINTER FOR MULTI TAG
+	// IMPORTANT ELEMENT TO MOVE POINTER FOR MULTI TAG
+	err := c.MovePointerIndx(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +266,7 @@ func (c *Converter) assembleOutputRowMsg(outTag string) ([]string, error) {
 			} else {
 				outputPosition := int(fieldInfo.Position) - 1 // we must work with index
 				if int(outputPosition) == 0 {                 // field outputPosition cannot be 0, because 0 position is Tag
-					return nil, fmt.Errorf(ErrWrongFieldPosition, outputPosition+1, fieldName)
+					return nil, fmt.Errorf(ErrWrongFieldPosition, fieldName, c.Output)
 				}
 
 				if tempLine[outputPosition] == "" { // we must save previous data that's why we checking current value of field
@@ -248,6 +283,7 @@ func (c *Converter) assembleOutputRowMsg(outTag string) ([]string, error) {
 
 	return tempLine, nil
 }
+
 
 
 func (c *Converter) MovePointerIndx(tag string) error {
@@ -269,10 +305,6 @@ func (c *Converter) MovePointerIndx(tag string) error {
 
 // WARNING: Important element
 func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
-	log.Println("Get tag for receive indx, tag:", inputTag)
-	log.Println("pointerToIndexInMultiTag:", pointerToIndexInMultiTag)
-	log.Println("pointerToTag:", pointerToTag)
-
 	tagsList, ok := c.InMsg.Tags[TagName(inputTag)]
 	if !ok {
 		return 0, fmt.Errorf(ErrInputTagMSGNotFound, inputTag, c.InMsg)
@@ -282,14 +314,9 @@ func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
 		return 0, fmt.Errorf(ErrWrongSliceOfTag, inputTag)
 	}
 	if len(tagsList) == 1 {
-		log.Printf("tag: %s, return 0 index", inputTag)
 		return 0, nil
 	}
 
-	log.Println("pointerToIndexInMultiTag:", pointerToIndexInMultiTag)
-	log.Println("pointerToTag:", pointerToTag)
-	
-	log.Printf("tag: %s is Multi tag", inputTag)
 	// len(tagsList) >= 2
 	if pointerToTag == "" {
 		pointerToTag = inputTag // It's means that we meet the multi tag		
@@ -297,14 +324,15 @@ func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
 		return 0, fmt.Errorf(ErrManyMultiTags, pointerToTag, inputTag)		
 	}
 		
-	log.Println("pointerToIndexInMultiTag(must increase on 1 point):", pointerToIndexInMultiTag)
-	log.Println("pointerToTag:", pointerToTag)
 
-	log.Printf("tag: %s, return %d index", inputTag, pointerToIndexInMultiTag)
 	// we reduce pointer on 1 point because pointer has already moved in the code above .
 	return pointerToIndexInMultiTag - 1, nil
 }
 
+func (c *Converter) ResetParams() {
+	pointerToIndexInMultiTag = defaultPointerToIndexInMultiTag
+	pointerToTag  = defaultPointerToTag
+}
 
 
 
@@ -312,7 +340,7 @@ func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
 func (c *Converter) setFieldInOutputRow(fN string, fI *Field, tL []string) error {
 	outputPosition := fI.Position - 1 // we must work with index
 	if int(outputPosition) == 0 {     // field outputPosition cannot be 0, because 0 position is Tag
-		return fmt.Errorf("incorrect position %f by fieldName %s", outputPosition, fN)
+		return fmt.Errorf(ErrWrongFieldPosition, fN, c.Output)
 	}
 
 	LinkedFields := fI.Linked // get list of avalible field links such as [tag-position]
@@ -355,7 +383,7 @@ func (c *Converter) setDefaultValueToField(fN string, fI *Field, tL []string) er
 			c.setFieldComponent(tL, pos, getTenth(outputPosition), defaultValue)
 		}
 	} else {
-		return fmt.Errorf("fieldName %s in output modification %v hasn't have a linked_fields Or default value is not specified Or not found in linked_fields", fN, c.Input)
+		return fmt.Errorf(ErrWrongFieldMetadata, fN, c.Input)
 	}
 
 	return nil
@@ -414,7 +442,7 @@ func (c *Converter) setValueToFieldWithOneLink(fN string, fI *Field, tL []string
 	// Get info about linked Field
 	linkedInfo := strings.Split(fI.Linked[0], linkToFieldSeparator) // len must be 2 (tag - 1, fieldPosition - 2)
 	if len(linkedInfo) != 2 {
-		return fmt.Errorf("specified field link is incorrect, field %s", fN)
+		return fmt.Errorf(ErrWrongFieldLink, fN)
 	}
 
 	linkedTag, linkedFieldPosition := linkedInfo[0], linkedInfo[1]
@@ -448,7 +476,7 @@ func (c *Converter) setValueToFieldWithMoreLinks(fN string, fI *Field, tL []stri
 	for i, inputLinkField := range linkedFields { // MANDATORY: len linked fields more than 1
 		linkedInfo := strings.Split(inputLinkField, linkToFieldSeparator) // len must be 2 (tag - 1, fieldPosition - 2)
 		if len(linkedInfo) != 2 {
-			return fmt.Errorf("specified field link is incorrect, field %s", fN)
+			return fmt.Errorf(ErrWrongFieldLink, fN)
 		}
 
 		linkedTag, linkedFieldPosition := linkedInfo[0], linkedInfo[1]
@@ -507,8 +535,8 @@ func (c *Converter) setFieldComponent(tL []string, pos, subPos int, value string
 // NOTE: be careful with subpos
 func (c *Converter) getFieldComponent(rowFields []string, posInp, subposInp int) (string, error) {
 	val := strings.Split(rowFields[posInp], c.Input.ComponentSeparator)[subposInp-1]
-	if len(val) >= len(rowFields[posInp]) {
-		return "", fmt.Errorf("incorrect field %s, the field component could not be pulled out", rowFields[posInp])
+	if len(val) >= len(rowFields[posInp]) { // => we must compare with '=='
+		return "", fmt.Errorf(ErrWrongComponentSplit, rowFields[posInp])
 	}
 
 	return val, nil
