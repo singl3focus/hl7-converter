@@ -80,8 +80,8 @@ func validateJSONConfig(p string) (bool, error) {
 
 // ReadYAMLConfigBlock (config path, block name (name needed json block))
 //
-// Deprecated: The yaml unmarshaling not checking by schema and no reccomend use yaml config for converting
-// Use ReadJSONConfigBlock instead. 
+// Deprecated: The yaml unmarshaling not checking by schema and no reccomend use yaml config for converting,
+// use ReadJSONConfigBlock instead. 
 func ReadYAMLConfigBlock(p, bN string) (*Modification, error) {
 	dataFile, err := os.ReadFile(p) // Reading config file
 	if err != nil {

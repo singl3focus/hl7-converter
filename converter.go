@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"slices"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -52,25 +50,6 @@ var (
 	pointerToTag             = defaultPointerToTag
 )
 
-// AssembleOutput
-//
-// WARN: function assemble message without adding 'Output.LineSeparator' after end row.
-// If you need it just add 'LineSeparator' in returned value.
-func (c *Converter) AssembleOutput(rows [][]string) []byte {
-	var buf bytes.Buffer
-	for i, row := range rows {
-		readyRow := strings.Join(row, c.Output.FieldSeparator)
-
-		buf.WriteString(readyRow)
-
-		if i != (len(rows) - 1) {
-			buf.WriteString(c.Output.LineSeparator)
-		}
-	}
-
-	return buf.Bytes()
-}
-
 
 func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 	_, err := c.ConvertToMSG(fullMsg) // fill inMsg in Converter structure
@@ -78,6 +57,10 @@ func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 		return nil, err
 	}
 
+	return c.convert(fullMsg)
+}
+
+func (c *Converter) convert(fullMsg []byte) ([][]string, error) {
 	sliceSplitedRows := make([][]string, 0, 10)
 
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
@@ -141,7 +124,7 @@ func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
 	for scanner.Scan() {
 		temp := make(TagValues)
 
-		token := scanner.Text() // getting string representation of row
+		token := scanner.Text() // [DEV] getting string representation of row
 		rowFields := strings.Split(token, c.Input.FieldSeparator)
 
 		tag, fields := rowFields[0], rowFields[1:]
@@ -149,7 +132,7 @@ func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
 			return nil, fmt.Errorf(ErrUndefinedInputTag, tag)
 		}
 
-		tempTag, tempFields := c.handleOptions(tag, fields)
+		tempTag, tempFields := c.handleOptions(tag, fields) // [TODO] UPGRADE OPTIONS 
 		processedTag, processedFields := TagName(tempTag), Fields(tempFields)
 		
 		temp[processedTag] = processedFields
@@ -158,7 +141,7 @@ func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
 			tags[processedTag] = append(tags[processedTag], temp)
 
 		} else {
-			tags[processedTag] = make(SliceOfTag, 0, 10) // capacity is 10 because it's optimal value, which describe average rows of message
+			tags[processedTag] = make(SliceOfTag, 0, 10) // [MAGIC] note - capacity is 10 because it's optimal value, which describe average rows of message
 			tags[processedTag] = append(tags[processedTag], temp)
 		}
 	}
@@ -189,29 +172,6 @@ func GetCustomSplit(sep string) func(data []byte, atEOF bool) (advance int, toke
 
 		return 0, nil, nil
 	}
-}
-
-//      ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ - ДОБАВИТЬ АВТО СПЛИТ MSG
-
-// IndetifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg
-func IndetifyMsg(msg *Msg, modification *Modification) (string, bool) {
-	actualTags := make([]string, 0, len(msg.Tags))
-	for Tag := range msg.Tags {
-		actualTags = append(actualTags, string(Tag))
-	}
-	sort.Strings(actualTags) // we sort in order to compare tags regardless of the positions of the tags
-
-	for TypeName, Tags := range modification.Types {
-		for _, someTags := range Tags{
-			sort.Strings(someTags)
-	
-			if slices.Compare(actualTags, someTags) == 0 {
-				return TypeName, true
-			}
-		}
-	}
-
-	return "", false
 }
 
 // SetValueToField

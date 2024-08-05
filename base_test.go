@@ -57,8 +57,17 @@ func TestConvertWithConverter(t *testing.T) {
 		configOutputBlockType = "hl7_mindray_hbl"
 	)
 
+	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
+	if err != nil {
+		t.Fatalf("------%s------", err.Error())
+	}
 
-	ready, msgType, err := hl7converter.ConvertWithConverter(configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, "yaml")
+	msgType, err := hl7converter.IndetifyMsg(*convParams, inputMsgHBL)
+	if err != nil {
+		t.Fatalf("------%s------", err.Error())
+	}
+
+	ready, _, err := hl7converter.Convert(convParams, inputMsgHBL)
 	if err != nil {
 		t.Fatalf("------%s------", err.Error())
 	}
