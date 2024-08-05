@@ -16,15 +16,15 @@ func BenchmarkConvertWithConverter(b *testing.B) {
 			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
 			"L|1|N")
 	
+		configPath = filepath.Join(workDir, hl7converter.CfgYaml)
+		
 		configInputBlockType = "hl7_astm_hbl"
 		configOutputBlockType = "hl7_mindray_hbl"
 	)
 
-	configPath := filepath.Join(workDir, configFilenameYaml)
-	schemaPath := filepath.Join(workDir, configFilenameJSONSchema)
+
 	for i := 0; i < b.N; i++ {
-		_, _, err := hl7converter.ConvertWithConverter(
-			schemaPath, configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, yaml)
+		_, _, err := hl7converter.ConvertWithConverter(configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, "json")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -34,10 +34,14 @@ func BenchmarkConvertWithConverter(b *testing.B) {
 }
 
 func BenchmarkReadYamlConfig(b *testing.B) {
-	configPath := filepath.Join(workDir, configFilenameYaml)
+	var (
+		configPath = filepath.Join(workDir, hl7converter.CfgYaml)
+
+		testModification = "hl7_astm_hbl"
+	)
 
 	for i := 0; i < b.N; i++ {
-		inputModification1, err := hl7converter.ReadYAMLConfigBlock(configPath, "hl7_astm_hbl")
+		inputModification1, err := hl7converter.ReadYAMLConfigBlock(configPath, testModification)
 		if err != nil || inputModification1 == nil {
 			b.Fatal(err)
 		}
@@ -45,13 +49,14 @@ func BenchmarkReadYamlConfig(b *testing.B) {
 }
 
 func BenchmarkReadJSONConfig(b *testing.B) {
-	configPath := filepath.Join(workDir, configFilenameJSON)
-	schemaPath := filepath.Join(workDir, configFilenameJSONSchema)
+	var (
+		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
 
-	testModification := "hl7_astm_hbl"
+		testModification = "hl7_astm_hbl"
+	)
 
 	for i := 0; i < b.N; i++ {
-		inputModification1, err := hl7converter.ReadJSONConfigBlock(schemaPath, configPath, testModification)
+		inputModification1, err := hl7converter.ReadJSONConfigBlock(configPath, testModification)
 		if err != nil || inputModification1 == nil {
 			b.Fatal(err)
 		}

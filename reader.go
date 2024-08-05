@@ -1,20 +1,23 @@
 package hl7converter
 
 import (
-	"os"
-	"fmt"
 	"encoding/json"
+	"os"
+	"path/filepath"
 
-	"gopkg.in/yaml.v2"
 	"github.com/xeipuuv/gojsonschema"
+	"gopkg.in/yaml.v2"
 )
 
 // readJSONConfig
 //
 // param::p it's config path
 // param::bТ it's block name (name needed json block)
-func ReadJSONConfigBlock(schemaPath, configPath, bN string) (*Modification, error) {
-	validateJSONConfig(schemaPath, configPath)
+func ReadJSONConfigBlock(configPath, bN string) (*Modification, error) {
+	ok, err := validateJSONConfig(configPath)
+	if !ok || err != nil {
+		return nil, err 
+	}
 
 	dataFile, err := os.ReadFile(configPath) // Reading config file
 	if err != nil {
@@ -31,13 +34,13 @@ func ReadJSONConfigBlock(schemaPath, configPath, bN string) (*Modification, erro
 
 	value, ok := objMap[bN] // Get needed blockName from map
 	if !ok {
-		return nil, fmt.Errorf("specified modification not found in config")
+		return nil, ErrModificationNotFound
 	}
 
 	
 	dataBlock, ok  := value.(map[string]any) // Check type blockName
 	if !ok {
-		return nil, fmt.Errorf("specified modification is not 'map[string]any'")
+		return nil, ErrInvalidJSON
 	}
 	
 		
@@ -56,9 +59,15 @@ func ReadJSONConfigBlock(schemaPath, configPath, bN string) (*Modification, erro
 }
 
 
-func validateJSONConfig(schemaPath, configPath string) {
+func validateJSONConfig(configPath string) (bool, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return false, nil
+	}
 
-	schPath := "file:///" + schemaPath
+	wd = filepath.Join(wd, CfgJSONSchema)
+	schPath := "file:///" + wd
+
 	cfgPath := "file:///" + configPath
 
 	schemaLoader := gojsonschema.NewReferenceLoader(schPath)
@@ -66,24 +75,15 @@ func validateJSONConfig(schemaPath, configPath string) {
 
     result, err := gojsonschema.Validate(schemaLoader, documentLoader)
     if err != nil {
-        fmt.Println(err.Error())
-		os.Exit(1)
+        return false, err
 	}
 
     if result.Valid() {
-        fmt.Println("The document is valid")
-    } else {
-        fmt.Println("The document is not valid. see errors:")
-        for _, desc := range result.Errors() {
-            fmt.Printf("- %s\n", desc)
-        }
-
-		os.Exit(1)
+        return true, nil
     }
+
+	return false, err
 }
-
-
-
 
 
 
@@ -107,12 +107,12 @@ func ReadYAMLConfigBlock(p, bN string) (*Modification, error) {
 
 	value, ok := objMap[bN] // Get needed blockName from map
 	if !ok {
-		return nil, fmt.Errorf("specified modification not found in config")
+		return nil, ErrModificationNotFound
 	}
 
 	dataBlock, ok  := value.(map[any]any) // Check type blockName
 	if !ok {
-		return nil, fmt.Errorf("specified modification is not 'map[string]any'")
+		return nil, ErrInvalidYAML
 	}
 		
 	yamlData, err := yaml.Marshal(dataBlock) // Marshal block data in order to convert block to needed structure 

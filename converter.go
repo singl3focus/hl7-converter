@@ -13,7 +13,6 @@ import (
 	"strings"
 )
 
-
 // Converter
 type Converter struct {
 	// Data parsed from config.
@@ -47,12 +46,11 @@ func NewConverter(passedInput, passedOutput *Modification) (*Converter, error) {
 
 var (
 	defaultPointerToIndexInMultiTag = 0
-	defaultPointerToTag = ""
+	defaultPointerToTag             = ""
 
 	pointerToIndexInMultiTag = defaultPointerToIndexInMultiTag
-	pointerToTag  = defaultPointerToTag
+	pointerToTag             = defaultPointerToTag
 )
-
 
 // AssembleOutput
 //
@@ -89,7 +87,7 @@ func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 
 		row, err := c.ConvertRow(token)
 		if errors.Is(err, ErrOutputTagNotFound) {
-			log.Println(outTag404, token)
+			log.Println(outTagNotFound, token)
 		} else if err != nil {
 			return nil, err
 		}
@@ -97,7 +95,7 @@ func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 		if len(row) != 0 {
 			sliceSplitedRows = append(sliceSplitedRows, row)
 		} else {
-			log.Printf(outRowEmpty, token)
+			log.Println(outRowEmpty, token)
 		}
 	}
 
@@ -166,10 +164,6 @@ func GetCustomSplit(sep string) func(data []byte, atEOF bool) (advance int, toke
 	}
 }
 
-
-
-
-
 //      ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ - ДОБАВИТЬ АВТО СПЛИТ MSG
 
 // IndetifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg
@@ -191,13 +185,11 @@ func IndetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 	return "", false
 }
 
-
 // SetValueToField
 //
-// receive 
-//
+// receive
 func (c *Converter) SetValueToField(msg *[][]string, rowIndx, fieldfIndx int, value string) {
-	(*msg)[rowIndx][fieldfIndx] = value 
+	(*msg)[rowIndx][fieldfIndx] = value
 }
 
 // ConvertRow
@@ -284,8 +276,6 @@ func (c *Converter) assembleOutputRowMsg(outTag string) ([]string, error) {
 	return tempLine, nil
 }
 
-
-
 func (c *Converter) MovePointerIndx(tag string) error {
 	tagsList, ok := c.InMsg.Tags[TagName(tag)]
 	if !ok {
@@ -301,7 +291,6 @@ func (c *Converter) MovePointerIndx(tag string) error {
 	pointerToIndexInMultiTag++
 	return nil
 }
-
 
 // WARNING: Important element
 func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
@@ -319,11 +308,10 @@ func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
 
 	// len(tagsList) >= 2
 	if pointerToTag == "" {
-		pointerToTag = inputTag // It's means that we meet the multi tag		
+		pointerToTag = inputTag // It's means that we meet the multi tag
 	} else if pointerToTag != inputTag {
-		return 0, fmt.Errorf(ErrManyMultiTags, pointerToTag, inputTag)		
+		return 0, fmt.Errorf(ErrManyMultiTags, pointerToTag, inputTag)
 	}
-		
 
 	// we reduce pointer on 1 point because pointer has already moved in the code above .
 	return pointerToIndexInMultiTag - 1, nil
@@ -331,10 +319,8 @@ func (c *Converter) GetPointerIndx(inputTag string) (int, error) {
 
 func (c *Converter) ResetParams() {
 	pointerToIndexInMultiTag = defaultPointerToIndexInMultiTag
-	pointerToTag  = defaultPointerToTag
+	pointerToTag = defaultPointerToTag
 }
-
-
 
 // setFieldInOutputRow is distributing of fields by linked fields number
 func (c *Converter) setFieldInOutputRow(fN string, fI *Field, tL []string) error {
@@ -437,7 +423,6 @@ func (c *Converter) setValueToField(fI *Field, inPos float64, tL []string, rowFi
 	return nil
 }
 
-
 func (c *Converter) setValueToFieldWithOneLink(fN string, fI *Field, tL []string) error {
 	// Get info about linked Field
 	linkedInfo := strings.Split(fI.Linked[0], linkToFieldSeparator) // len must be 2 (tag - 1, fieldPosition - 2)
@@ -459,7 +444,7 @@ func (c *Converter) setValueToFieldWithOneLink(fN string, fI *Field, tL []string
 
 	err = c.setValueToField(fI, position, tL, (c.InMsg.Tags[TagName(linkedTag)][indxToRow])[TagName(linkedTag)])
 	if err != nil {
-		return err 
+		return err
 	}
 
 	return nil

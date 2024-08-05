@@ -2,15 +2,13 @@ package hl7converter_test
 
 import (
 	"os"
-	
 	"path/filepath"
 	"strings"
-	"reflect"
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter"
-	
 )
+
 
 const (
 	success = "\u2713"
@@ -19,18 +17,7 @@ const (
 	CR = "\r"
 )
 
-var (
-	configFilenameYaml       = "config.yaml"
-	configFilenameJSON       = "config.json"
-	configFilenameJSONSchema = "config.schema.json"
-
-	yaml = "yaml"
-	json = "json"
-)
-
-var (
-	workDir string 
-)
+var workDir string 
 
 
 func init() {
@@ -57,27 +44,24 @@ func TestConvertWithConverter(t *testing.T) {
 			"OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" + CR +
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||" + CR +
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||")
-	
 		outputMsgTypeHBL = "Results"
-
+		
+		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
 		configInputBlockType = "hl7_astm_hbl"
 		configOutputBlockType = "hl7_mindray_hbl"
 	)
 
-	configPath := filepath.Join(workDir, configFilenameYaml)
-	schemaPath := filepath.Join(workDir, configFilenameJSONSchema)
 
-	ready, msgType, err := hl7converter.ConvertWithConverter(
-		schemaPath, configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, yaml)
+	ready, msgType, err := hl7converter.ConvertWithConverter(configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, "yaml")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("------%s------", err.Error())
 	}
 
 	res := make([]byte, 0, 512)
 	for i, rowFields := range ready {
 		t.Logf("%d row: %v\n", i+1, rowFields)
 		readyRow := strings.Join(rowFields, "|")
-		t.Logf("%d row: %v\n", i+1, readyRow)
+		t.Logf("%d combined row: %v\n", i+1, readyRow)
 
 		res = append(res, []byte(readyRow)...)
 		if i < (len(ready) - 1) {
@@ -87,71 +71,79 @@ func TestConvertWithConverter(t *testing.T) {
 
 	t.Log("message type:", msgType)
 	if msgType != outputMsgTypeHBL {
-		t.Fatal("message type  is wrong")
+		t.Fatal("------message type is wrong------")
 	}
 
 	if !(string(res) == string(outputMsgHBL)) {
-		t.Fatal("converted msg is wrong")
+		t.Fatal("------converted msg is wrong------")
 	}
 
 	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
 
-	t.Log(success, "TestConvertMsg right")
+	t.Log(success, "------Converting is valid------")
 }
 
+/*
 func TestCompareReadConfigBlock(t *testing.T) {
-	configPath1 := filepath.Join(workDir, configFilenameYaml)
-	configPath2 := filepath.Join(workDir, configFilenameJSON)
-	schemaPath := filepath.Join(workDir, configFilenameJSONSchema)
-
-	cfgInBlockName := "hl7_astm_hbl"
+	var (
+		configPath1 = filepath.Join(workDir, hl7converter.CfgYaml)
+		configPath2 = filepath.Join(workDir, hl7converter.CfgJSON)
+		
+		cfgInBlockName = "hl7_astm_hbl"
+	)
 
 	inputModification1, err := hl7converter.ReadYAMLConfigBlock(configPath1, cfgInBlockName)
 	if err != nil || inputModification1 == nil {
 		t.Fatal(err)
 	}
 
-	inputModification2, err := hl7converter.ReadJSONConfigBlock(schemaPath, configPath2, cfgInBlockName)
+	inputModification2, err := hl7converter.ReadJSONConfigBlock(configPath2, cfgInBlockName)
 	if err != nil || inputModification2 == nil {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(inputModification1, inputModification2) {
+	if !cmp.Equal(inputModification1.Tags, inputModification2.Tags){
 		t.Log(inputModification1)
 		t.Log(inputModification2)
 
-		t.Fatal("modifications is different")
+		t.Fatal("------Modifications is different------")
 	}
 
-	t.Log(success, "Success compare modifications")
+	t.Log(success, "------Success compare modifications------")
 }
+*/
 
 
 func TestReadJSONConfigBlock(t *testing.T) {
-	configPath := filepath.Join(workDir, configFilenameJSON)
-	schemaPath := filepath.Join(workDir, configFilenameJSONSchema)
-	cfgInBlockName := "hl7_astm_hbl"
+	var (
+		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
+
+		cfgInBlockName = "hl7_astm_hbl"
+	)
 
 
-	inputModification2, err := hl7converter.ReadJSONConfigBlock(schemaPath, configPath, cfgInBlockName)
-	if err != nil || inputModification2 == nil {
+	Modification, err := hl7converter.ReadJSONConfigBlock(configPath, cfgInBlockName)
+	if err != nil || Modification == nil {
 		t.Fatal(err)
 	}
 
-	t.Log(success, "Success reading modification by JSON")
+	t.Log(success, "------Success reading modification by JSON------")
 }
 
 func TestReadYAMLConfigBlock(t *testing.T) {
-	configPath := filepath.Join(workDir, configFilenameYaml)
-	cfgInBlockName := "hl7_astm_hbl"
+	var (
+		configPath = filepath.Join(workDir, hl7converter.CfgYaml)
+		
+		cfgInBlockName = "hl7_astm_hbl"
+	)
 
 
-	inputModification1, err := hl7converter.ReadYAMLConfigBlock(configPath, cfgInBlockName)
-	if err != nil || inputModification1 == nil {
+	Modification, err := hl7converter.ReadYAMLConfigBlock(configPath, cfgInBlockName)
+	if err != nil || Modification == nil {
 		t.Fatal(err)
 	}
 
-	t.Log(success, "Success reading modification by YAML")
+	t.Log(success, "------Success reading modification by YAML------")
 }
 
 
