@@ -22,7 +22,7 @@ jobs:
 
       - name: Push tag
         run: |
-          git config --local user.email "tursunov.imran@mail.ru"
+          git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
           git tag ${{ env.TAG }}
           git push origin ${{ env.TAG }}
