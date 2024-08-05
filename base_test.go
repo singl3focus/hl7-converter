@@ -118,6 +118,13 @@ func TestCompareReadConfigBlock(t *testing.T) {
 	t.Log(success, "------Success compare modifications------")
 }
 
+// [ADDED TEST FOR EVERY FUNCTION OF CONVERTING]
+/*
+func TestNotLinkedTag(t *testing.T) {}
+
+func TestTagOptions(t *testing.T) {}
+*/
+
 
 func TestReadJSONConfigBlock(t *testing.T) {
 	var (
