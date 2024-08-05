@@ -24,7 +24,7 @@ func BenchmarkConvertWithConverter(b *testing.B) {
 
 
 	for i := 0; i < b.N; i++ {
-		_, _, err := hl7converter.ConvertWithConverter(configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, "yaml")
+		_, _, err := hl7converter.ConvertWithConverter(configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, "json")
 		if err != nil {
 			b.Fatal(err)
 		}

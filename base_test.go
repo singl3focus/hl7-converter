@@ -84,7 +84,9 @@ func TestConvertWithConverter(t *testing.T) {
 		t.Fatal("------converted msg is wrong------")
 	}
 
-	t.Log(success, "------Converting is valid------")
+	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
+
+	t.Log(success, "TestConvertMsg right")
 }
 
 /*
@@ -115,14 +117,6 @@ func TestCompareReadConfigBlock(t *testing.T) {
 
 	t.Log(success, "------Success compare modifications------")
 }
-*/
-
-// [ADDED TEST FOR EVERY FUNCTION OF CONVERTING]
-/*
-func TestNotLinkedTag(t *testing.T) {}
-
-func TestTagOptions(t *testing.T) {}
-*/
 
 
 func TestReadJSONConfigBlock(t *testing.T) {
