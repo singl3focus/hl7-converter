@@ -8,7 +8,7 @@ import (
 // ConvertWithConverter function
 //
 // It's just an example of how convert some data, you can use it as the basics for your conversion
-func ConvertWithConverter(schemaPath, cfgPath, cfgInBlockName, cfgOutBlockName string, msg []byte, format string) ([][]string, string, error) {
+func ConvertWithConverter(cfgPath, cfgInBlockName, cfgOutBlockName string, msg []byte, format string) ([][]string, string, error) {
 	var inputModification *Modification
 	var outputModification *Modification
 	var err error
@@ -16,12 +16,12 @@ func ConvertWithConverter(schemaPath, cfgPath, cfgInBlockName, cfgOutBlockName s
 
 	switch format {
 	case "json": 
-		inputModification, err = ReadJSONConfigBlock(schemaPath, cfgPath, cfgInBlockName)
+		inputModification, err = ReadJSONConfigBlock(cfgPath, cfgInBlockName)
 		if err != nil || inputModification == nil {
 			log.Fatal(err)
 		}
 
-		outputModification, err = ReadJSONConfigBlock(schemaPath, cfgPath, cfgOutBlockName)
+		outputModification, err = ReadJSONConfigBlock(cfgPath, cfgOutBlockName)
 		if err != nil || outputModification == nil {
 			log.Fatal(err)
 		}
