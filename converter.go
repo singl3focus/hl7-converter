@@ -51,6 +51,7 @@ var (
 )
 
 
+
 func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 	_, err := c.ConvertToMSG(fullMsg) // fill inMsg in Converter structure
 	if err != nil {

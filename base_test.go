@@ -93,9 +93,7 @@ func TestConvertWithConverter(t *testing.T) {
 		t.Fatal("------converted msg is wrong------")
 	}
 
-	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
-
-	t.Log(success, "TestConvertMsg right")
+	t.Log(success, "------Converting is valid------")
 }
 
 /*
