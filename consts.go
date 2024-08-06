@@ -40,7 +40,6 @@ var (
 )
 
 // [CONVERTING FEATURES ERRORS]
-
 const (
 	ErrUndefinedOption = "undefined option %s by tag %s"
 )
