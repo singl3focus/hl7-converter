@@ -25,11 +25,18 @@
                 "type": "object",
                 "additionalProperties": {
                     "type": "array",
-                    "description": "array of tags which define some msg type",
-
+                    "description": "array of arrrays tags which define some msg type",
+                    
                     "items": {
-                        "type": "string"
-                    } 
+                        "type": "array",
+                        "description": "array tags which define some msg type",
+                        
+                        "items": {
+                            "type": "string" 
+                        },
+
+                        "uniqueItems": true
+                    }
                 }
             },
 
@@ -42,6 +49,17 @@
                     "description": "single tag",
 
                     "properties": {
+                        "options": {
+                            "description": "options for the tag",
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "examples" : "autofill"
+                            },
+
+                            "uniqueItems": true
+                        },
+
                         "linked" : {
                             "description": "link(s) by other tags",
                             "type": "array",

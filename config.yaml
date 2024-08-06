@@ -4,7 +4,7 @@ hl7_astm_hbl:
     line_separator: "\n"
 
     types:
-        Results: ["H", "P", "O", "R", "L"]
+        Results: [["H", "P", "O", "R", "L"]]
 
     tags:
         H:
@@ -89,7 +89,7 @@ hl7_mindray_hbl:
     line_separator: "\r"
 
     types:
-        Results: ["MSH", "PID", "OBR", "OBX"]
+        Results: [["MSH", "PID", "OBR", "OBX"]]
 
     tags:
         MSH:

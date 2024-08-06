@@ -34,6 +34,11 @@ var (
 	ErrOutputTagNotFound = errors.New("linked tags in tag not found in output modification")
 )
 
+// [CONVERTING FEATURES ERRORS]
+
+const (
+	ErrUndefinedOption = "undefined option %s by tag %s"
+)
 
 // [CONVERTEING ERRORS with Format]
 const (

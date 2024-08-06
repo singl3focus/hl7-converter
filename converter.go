@@ -71,6 +71,7 @@ func (c *Converter) AssembleOutput(rows [][]string) []byte {
 	return buf.Bytes()
 }
 
+
 func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 	_, err := c.ConvertToMSG(fullMsg) // fill inMsg in Converter structure
 	if err != nil {
@@ -104,6 +105,29 @@ func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 	return sliceSplitedRows, nil
 }
 
+
+func (c *Converter) handleOptions(tag string, fields []string) (string, []string) {
+	options := c.Input.Tags[tag].Options
+
+	newFields := fields
+
+	for _, option := range options {
+		switch option {
+		case "autofill":
+			diff := (c.Input.Tags[tag].FieldsNumber - 1) - len(fields) // example: FN - 31(1 - Tag), len(fields) - 28/ That we need add 2 empty fields
+			for i := 0; i < diff; i++ {
+				newFields = append(newFields, "")
+			}
+
+		default:
+			panic(fmt.Sprintf(ErrUndefinedOption, option, tag))	
+		}
+	}
+
+	return tag, newFields
+}
+
+
 // ConvertToMSG  function
 // return MSG model for get fields data specified in output 'linked_fields'.
 //
@@ -120,19 +144,22 @@ func (c *Converter) ConvertToMSG(fullMsg []byte) (*Msg, error) {
 		token := scanner.Text() // getting string representation of row
 		rowFields := strings.Split(token, c.Input.FieldSeparator)
 
-		tag, fields := TagName(rowFields[0]), Fields(rowFields[1:])
-		if _, ok := c.Input.Tags[string(tag)]; !ok {
+		tag, fields := rowFields[0], rowFields[1:]
+		if _, ok := c.Input.Tags[tag]; !ok {
 			return nil, fmt.Errorf(ErrUndefinedInputTag, tag)
 		}
 
-		temp[TagName(tag)] = fields
+		tempTag, tempFields := c.handleOptions(tag, fields)
+		processedTag, processedFields := TagName(tempTag), Fields(tempFields)
+		
+		temp[processedTag] = processedFields
 
-		if _, ok := tags[tag]; ok {
-			tags[tag] = append(tags[tag], temp)
+		if _, ok := tags[processedTag]; ok {
+			tags[processedTag] = append(tags[processedTag], temp)
 
 		} else {
-			tags[tag] = make(SliceOfTag, 0, 10) // capacity is 10 because it's optimal value, which describe average rows of message
-			tags[tag] = append(tags[tag], temp)
+			tags[processedTag] = make(SliceOfTag, 0, 10) // capacity is 10 because it's optimal value, which describe average rows of message
+			tags[processedTag] = append(tags[processedTag], temp)
 		}
 	}
 
@@ -175,10 +202,12 @@ func IndetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 	sort.Strings(actualTags) // we sort in order to compare tags regardless of the positions of the tags
 
 	for TypeName, Tags := range modification.Types {
-		sort.Strings(Tags)
-
-		if slices.Compare(actualTags, Tags) == 0 {
-			return TypeName, true
+		for _, someTags := range Tags{
+			sort.Strings(someTags)
+	
+			if slices.Compare(actualTags, someTags) == 0 {
+				return TypeName, true
+			}
 		}
 	}
 
