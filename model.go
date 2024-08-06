@@ -7,13 +7,14 @@ type Modification struct {
 	FieldSeparator     string `json:"field_separator" yaml:"field_separator"`
 	LineSeparator      string `json:"line_separator" yaml:"line_separator"`
 
-	Types map[string][]string `json:"types,omitempty" yaml:"types"`
+	Types map[string][][]string `json:"types,omitempty" yaml:"types"`
 
 	Tags map[string]Tag `json:"tags" yaml:"tags"`
 }
 
 type Tag struct {
-	Linked       []string `json:"linked" yaml:"linked"`
+	Linked       []string `json:"linked,omitempty" yaml:"linked"`
+	Options      []string `json:"options,omitempty" yaml:"options"`
 	FieldsNumber int      `json:"fields_number" yaml:"fields_number"`
 
 	Fields map[string]Field `json:"fields" yaml:"fields"`
