@@ -1,0 +1,120 @@
+package hl7converter
+
+var jsonSchema = `{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "./config.schema.json",
+    
+    "title": "modifications",
+    "description": "Represenatations of formats",
+    "type": "object",
+    
+    "additionalProperties": {
+        "type": "object",
+        "properties": {
+            "component_separator" : {
+                "type": "string"
+            },
+
+            "field_separator": {
+                "type": "string"
+            },
+        
+            "line_separator": {
+                "type": "string"
+            },
+
+            "types" : {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "array",
+                    "description": "array of arrrays tags which define some msg type",
+                    
+                    "items": {
+                        "type": "array",
+                        "description": "array tags which define some msg type",
+                        
+                        "items": {
+                            "type": "string" 
+                        },
+
+                        "uniqueItems": true
+                    }
+                }
+            },
+
+            "tags": {
+                "type": "object", 
+                "description": "Modification tags",
+
+                "additionalProperties": {
+                    "type": "object",
+                    "description": "single tag",
+
+                    "properties": {
+                        "options": {
+                            "description": "options for the tag",
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "examples" : "autofill"
+                            },
+
+                            "uniqueItems": true
+                        },
+
+                        "linked" : {
+                            "description": "link(s) by other tags",
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "examples" : "MSH"
+                            },
+
+                            "uniqueItems": true
+                        },
+
+                        "fields_number" : {
+                            "description": "count of fields in row with tag",
+                            "type": "integer"
+                        },
+
+                        "fields": {
+                            "type": "object",
+                            "description": "fields of row",
+
+                            "additionalProperties": {
+                                "type": "object",
+                                "description": "field of tag",
+
+                                "properties": {
+                                    "default_value": {
+                                        "description": "default value for field",
+                                        "type": "string"
+                                    },
+                                    "position": {
+                                        "description": "position field in row",
+                                        "type": "number"
+                                    },
+                                    "components_count": {
+                                        "description": "if position field is float, then number of components must be specified here",
+                                        "type": "integer"
+                                    },
+                                    "linked_fields": {
+                                        "description": "The unique identifier for a product",
+                                        "type": "array"
+                                    }
+                                },
+
+                                "required": ["position"]
+                            }
+                        }
+                    },
+
+                    "required": ["linked", "fields_number", "fields"]
+                }
+            }  
+        },
+    
+        "required": ["component_separator", "field_separator", "line_separator", "tags"]
+    }    
+}`
