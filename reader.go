@@ -1,9 +1,8 @@
 package hl7converter
 
 import (
-	"encoding/json"
 	"os"
-	"path/filepath"
+	"encoding/json"
 
 	"github.com/xeipuuv/gojsonschema"
 	"gopkg.in/yaml.v2"
@@ -60,17 +59,9 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 
 
 func validateJSONConfig(p string) (bool, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return false, nil
-	}
-
-	wd = filepath.Join(wd, CfgJSONSchema)
-	schPath := "file:///" + wd
-
 	cfgPath := "file:///" + p
 
-	schemaLoader := gojsonschema.NewReferenceLoader(schPath)
+	schemaLoader := gojsonschema.NewStringLoader(jsonSchema)
     documentLoader := gojsonschema.NewReferenceLoader(cfgPath)
 
     result, err := gojsonschema.Validate(schemaLoader, documentLoader)
@@ -82,7 +73,7 @@ func validateJSONConfig(p string) (bool, error) {
         return true, nil
     }
 
-	return false, err
+	return false, ErrInvalidConfig
 }
 
 

@@ -17,6 +17,11 @@ var (
 	ErrInvalidJSON = errors.New("JSON is invalid. Specified modification is not 'map[string]any'")
 )
 
+// [PARSING CONFIG ERRORS]
+var (
+	ErrInvalidConfig = errors.New("validate json has been unsuccessful")
+)
+
 
 // [CONVERTER DATA]
 const (
@@ -35,7 +40,6 @@ var (
 )
 
 // [CONVERTING FEATURES ERRORS]
-
 const (
 	ErrUndefinedOption = "undefined option %s by tag %s"
 )
