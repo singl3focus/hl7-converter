@@ -5,7 +5,7 @@
         "line_separator": "\n",
 
         "types": {
-            "Results": [["H", "P", "R", "L"], ["H", "P", "O", "R", "L"]]
+            "Results": [["H", "P", "R", "O", "C" ,"L"], ["H", "P", "O", "R", "L"]]
         },
 
         "tags" : {
@@ -53,6 +53,12 @@
                         "linked_fields": ["OBR-16"]
                     }
                 }
+            },
+
+            "C": {
+                "linked": [],
+                "fields_number": 0,
+                "fields": {}
             },
 
             "R": {

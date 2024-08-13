@@ -35,7 +35,13 @@ func TestConvertWithConverter(t *testing.T) {
 		inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
 			"P|1||||^||||||||||||||||||||||||||||\n" +
 			"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
+			"C|||||||||||||||\n" +
 			"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
+			"C|||||||||||||||\n" +
+			"C|||||||||||||||\n" +
+			"C|||||||||||||||\n" +
+			"C|||||||||||||||\n" +
+			"C|||||||||||||||\n" +
 			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
 			"L|1|N")
 	
@@ -78,7 +84,9 @@ func TestConvertWithConverter(t *testing.T) {
 		t.Fatal("------converted msg is wrong------")
 	}
 
-	t.Log(success, "------Converting is valid------")
+	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
+
+	t.Log(success, "TestConvertMsg right")
 }
 
 /*
@@ -109,7 +117,6 @@ func TestCompareReadConfigBlock(t *testing.T) {
 
 	t.Log(success, "------Success compare modifications------")
 }
-*/
 
 // [ADDED TEST FOR EVERY FUNCTION OF CONVERTING]
 /*
