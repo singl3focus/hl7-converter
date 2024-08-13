@@ -241,12 +241,7 @@ func (c *Converter) ConvertRow(row string) ([]string, error) {
 		return nil, fmt.Errorf(ErrInputTagModificationNotFound, tag, c.Input)
 	}
 
-	// IMPORTANT ELEMENT TO MOVE POINTER FOR MULTI TAG
-	err := c.MovePointerIndx(tag)
-	if err != nil {
-		return nil, err
-	}
-
+	
 	var matchingTag string
 	for _, linkedTag := range tagInfo.Linked { // the first tag get will be taken for output
 		if _, ok := c.Output.Tags[linkedTag]; ok {
@@ -256,6 +251,12 @@ func (c *Converter) ConvertRow(row string) ([]string, error) {
 	}
 	if matchingTag == "" {
 		return nil, ErrOutputTagNotFound
+	}
+	
+	// IMPORTANT ELEMENT TO MOVE POINTER FOR MULTI TAG
+	err := c.MovePointerIndx(tag)
+	if err != nil {
+		return nil, err
 	}
 
 	outputLine, err := c.assembleOutputRowMsg(matchingTag)
