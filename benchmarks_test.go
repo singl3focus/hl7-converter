@@ -16,15 +16,20 @@ func BenchmarkConvertWithConverter(b *testing.B) {
 			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
 			"L|1|N")
 	
-		configPath = filepath.Join(workDir, hl7converter.CfgYaml)
+		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
 		
 		configInputBlockType = "hl7_astm_hbl"
 		configOutputBlockType = "hl7_mindray_hbl"
 	)
 
+	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	for i := 0; i < b.N; i++ {
-		_, _, err := hl7converter.ConvertWithConverter(configPath, configInputBlockType, configOutputBlockType, inputMsgHBL, "yaml")
+
+		_, _, err := hl7converter.Convert(convParams, inputMsgHBL)
 		if err != nil {
 			b.Fatal(err)
 		}

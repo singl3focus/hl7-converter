@@ -4,7 +4,7 @@ import "errors"
 
 // [APPLICATION]
 const (
-	CfgYaml       = "config.yaml"
+	CfgYaml       = "config.yaml" // Deprecated
 	CfgJSON       = "config.json"
 	CfgJSONSchema = "config.schema.json"
 )
