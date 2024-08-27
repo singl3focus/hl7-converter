@@ -14,7 +14,10 @@ You send full message as []byte to "Converter" and convert it with "Converter.Co
 As a response, you will receive rows splited by field separator - this is done so that it is convenient to work on the line on top of the conversion. And after any your manipulation on any row, you can assemble it with "Converter.AssembleOutput".
 
 ## Usage
-```go get github.com/singl3focus/hl7-converter```  
+
+If you want get version of converter with go 1.20 (when go supported windows 7, windows 8), use tags that contains suffix: "go1.20"
+
+```go get github.com/singl3focus/hl7-converter@TAG```  
 
 Example of converting:
 ```

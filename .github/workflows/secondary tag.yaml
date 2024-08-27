@@ -1,0 +1,25 @@
+name: Secondary Auto Tag 
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create tag
+        id: tag
+        run: echo "TAG=v1.0.${{ github.run_number }}-go1.20" >> $GITHUB_ENV
+
+      - name: Push tag
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git tag ${{ env.TAG }}
+          git push origin ${{ env.TAG }}
