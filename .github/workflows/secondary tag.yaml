@@ -3,7 +3,7 @@ name: Secondary Auto Tag
 on:
   push:
     branches:
-      - main
+      - develop-go1.20
 
 jobs:
   tag:
