@@ -1,6 +1,6 @@
 module github.com/singl3focus/hl7-converter/v2
 
-go 1.22.3
+go 1.20
 
 require (
 	github.com/singl3focus/hl7-converter v1.0.9
