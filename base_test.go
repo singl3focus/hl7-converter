@@ -53,8 +53,8 @@ func TestConvertWithConverter(t *testing.T) {
 		outputMsgTypeHBL = "Results"
 		
 		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
-		configInputBlockType = "hl7_astm_hbl"
-		configOutputBlockType = "hl7_mindray_hbl"
+		configInputBlockType = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
 	)
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
@@ -98,34 +98,6 @@ func TestConvertWithConverter(t *testing.T) {
 	t.Log(success, "TestConvertMsg right")
 }
 
-/*
-func TestCompareReadConfigBlock(t *testing.T) {
-	var (
-		configPath1 = filepath.Join(workDir, hl7converter.CfgYaml)
-		configPath2 = filepath.Join(workDir, hl7converter.CfgJSON)
-		
-		cfgInBlockName = "hl7_astm_hbl"
-	)
-
-	inputModification1, err := hl7converter.ReadYAMLConfigBlock(configPath1, cfgInBlockName)
-	if err != nil || inputModification1 == nil {
-		t.Fatal(err)
-	}
-
-	inputModification2, err := hl7converter.ReadJSONConfigBlock(configPath2, cfgInBlockName)
-	if err != nil || inputModification2 == nil {
-		t.Fatal(err)
-	}
-
-	if !cmp.Equal(inputModification1.Tags, inputModification2.Tags){
-		t.Log(inputModification1)
-		t.Log(inputModification2)
-
-		t.Fatal("------Modifications is different------")
-	}
-
-	t.Log(success, "------Success compare modifications------")
-}
 
 // [ADDED TEST FOR EVERY FUNCTION OF CONVERTING]
 /*
@@ -140,13 +112,12 @@ func TestNotLinkedTag(t *testing.T) {}
 
 func TestTagOptions(t *testing.T) {}
 */
-
 
 func TestReadJSONConfigBlock(t *testing.T) {
 	var (
 		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
 
-		cfgInBlockName = "hl7_astm_hbl"
+		cfgInBlockName = "astm_hbl"
 	)
 
 
@@ -157,25 +128,6 @@ func TestReadJSONConfigBlock(t *testing.T) {
 
 	t.Log(success, "------Success reading modification by JSON------")
 }
-
-func TestReadYAMLConfigBlock(t *testing.T) {
-	var (
-		configPath = filepath.Join(workDir, hl7converter.CfgYaml)
-		
-		cfgInBlockName = "hl7_astm_hbl"
-	)
-
-
-	Modification, err := hl7converter.ReadYAMLConfigBlock(configPath, cfgInBlockName)
-	if err != nil || Modification == nil {
-		t.Fatal(err)
-	}
-
-	t.Log(success, "------Success reading modification by YAML------")
-}
-
-
-
 
 
 /*

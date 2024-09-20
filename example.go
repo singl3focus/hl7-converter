@@ -74,21 +74,21 @@ type ConverterParams struct {
 
 func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
 	if !strings.Contains(cfgPath, ".json") {
-		return nil, fmt.Errorf("config path %s doesn't contains extension 'json'", cfgPath)
+		return nil, fmt.Errorf(ErrInvalidJsonExtension, cfgPath)
 	}
 
 	inputModification, err := ReadJSONConfigBlock(cfgPath, cfgInBlockName)
 	if err != nil {
 		return nil, err
 	} else if inputModification == nil {
-		return nil, fmt.Errorf("input modification was incorrectly read from the file (path=%s), it's empty", cfgPath)
+		return nil, fmt.Errorf(ErrNilModification, cfgInBlockName, cfgPath)
 	}
 
 	outputModification, err := ReadJSONConfigBlock(cfgPath, cfgOutBlockName)
 	if err != nil {
 		return nil, err
 	} else if outputModification == nil {
-		return nil, fmt.Errorf("output modification was incorrectly read from the file (path=%s), it's empty", cfgPath)
+		return nil, fmt.Errorf(ErrNilModification, cfgOutBlockName, cfgPath)
 	}
 
 	splitByLine := GetCustomSplit(inputModification.LineSeparator)

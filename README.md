@@ -87,9 +87,19 @@ func main() {
 **Remember, this is just an example of how you can use it, but it can differently used or something else.**
 
 
-## Config file 
+## Config file
+
+### Advices
+1) **When you are filling any modification that you should be guided by the fact that this Transformation will occur based on the output modification, and not the input one.**
+
+
+
 ### Rules
-- **See examples and fill it out like**
+1) **See examples and fill it out like**
+
+#### Rows
+- ***Rows of message cannot contain a line separator otherwise the conversion will be incorrect. \
+If you meet that line separator equal component separator, you need change all component separator in message on other symbol (in config you need specifie replaced symbol), and after converting replace component separator back*** 
 
 - ***Before convert your message Make sure that message not contain line separator (in case if line separator equal component separator). If you meet this you need change all component separator in message on other symbol (in config you need specifie replaced symbol), and after converting replace component separator back***
 
