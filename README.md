@@ -1,9 +1,11 @@
 # HL7-Converter 
 
-Package for convert hl7 message to different modifications. At the same time, the converter depends only on the config file, so it has extensive conversion capabilities.
+Package for convert hl7 message to different modifications.
+At the same time, the converter depends only on the config file, so it has extensive conversion capabilities.
 
 Some information about HL7: https://rhapsody.health/blog/complete-guide-to-hl7-standards/
 
+***Now Package correct work only with ASCII symbols***
 
 <p> <center>
 <img src="https://img.shields.io/badge/made_by-singl3focus-blue"> <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat">
@@ -93,17 +95,24 @@ func main() {
 1) **When you are filling any modification that you should be guided by the fact that this Transformation will occur based on the output modification, and not the input one.**
 
 
-
 ### Rules
-1) **See examples and fill it out like**
+- **See examples and fill it out like**
+
+#### Template filling
+-
+-
+
+#### JSON
+- All keys in JSON must be string
 
 #### Rows
 - ***Rows of message cannot contain a line separator otherwise the conversion will be incorrect. \
 If you meet that line separator equal component separator, you need change all component separator in message on other symbol (in config you need specifie replaced symbol), and after converting replace component separator back*** 
 
-- ***Before convert your message Make sure that message not contain line separator (in case if line separator equal component separator). If you meet this you need change all component separator in message on other symbol (in config you need specifie replaced symbol), and after converting replace component separator back***
+#### Tags
+- If you set `fields_numbe more than 0`, converter will be `compare fields_number and template fields_number` . If you set `fields_number = -1`, it's not be checking
+- **It was decided that the `default_value (which specified with help 'OR' symbol)` of the field should not be substituted for the `template`, this was done so that the developer aimed at obtaining values through the template could be guaranteed to make sure that an error would come.**
 
-- all keys in Json must be string
 - if you specify multiple values in array, they must be separated by a comma ***(,)***
 - in case if linked tags has more than one match will be choose first one 
 - field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of all separators, else you can get incorrect conversion

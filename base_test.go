@@ -2,13 +2,14 @@ package hl7converter_test
 
 import (
 	"os"
-	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"path/filepath"
 
 	hl7converter "github.com/singl3focus/hl7-converter"
+	"github.com/stretchr/testify/assert"
 )
-
 
 const (
 	success = "\u2713"
@@ -17,8 +18,7 @@ const (
 	CR = "\r"
 )
 
-var workDir string 
-
+var workDir string
 
 func init() {
 	wd, err := os.Getwd()
@@ -29,8 +29,61 @@ func init() {
 	workDir = wd
 }
 
+func TestConvertWithConverterRow(t *testing.T) {
+	var (
+		outputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327")
 
-func TestConvertWithConverter(t *testing.T) {
+		inputMsgHBL = []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|")
+
+		// outputMsgTypeHBL = "Results"
+
+		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configInputBlockType  = "mindray_hbl"
+		configOutputBlockType = "astm_hbl"
+	)
+
+	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
+	if err != nil {
+		t.Fatalf("------%s------", err.Error())
+	}
+
+	// msgType, err := hl7converter.IndetifyMsg(*convParams, inputMsgHBL)
+	// if err != nil {
+	// 	t.Fatalf("------%s------", err.Error())
+	// }
+
+	ready, _, err := hl7converter.Convert(convParams, inputMsgHBL)
+	if err != nil {
+		t.Fatalf("------%s------", err.Error())
+	}
+
+	res := make([]byte, 0, 512)
+	for i, rowFields := range ready {
+		t.Logf("%d row: %v\n", i+1, rowFields)
+		readyRow := strings.Join(rowFields, "|")
+		t.Logf("%d combined row: %v\n", i+1, readyRow)
+
+		res = append(res, []byte(readyRow)...)
+		if i < (len(ready) - 1) {
+			res = append(res, []byte(CR)...)
+		}
+	}
+
+	// t.Log("message type:", msgType)
+	// if msgType != outputMsgTypeHBL {
+	// 	t.Fatal("------message type is wrong------")
+	// }
+
+	if !(string(res) == string(outputMsgHBL)) {
+		t.Fatal("------converted msg is wrong------")
+	}
+
+	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
+
+	t.Log(success, "TestConvertMsg right")
+}
+
+func TestConvertWithConverterMultiRows(t *testing.T) {
 	var (
 		inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
 			"P|1||||^||||||||||||||||||||||||||||\n" +
@@ -44,16 +97,16 @@ func TestConvertWithConverter(t *testing.T) {
 			"C|||||||||||||||\n" +
 			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
 			"L|1|N")
-	
+
 		outputMsgHBL = []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|" + CR +
 			"PID||142212|||||||||||||||||||||||||||" + CR +
 			"OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" + CR +
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||" + CR +
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||")
 		outputMsgTypeHBL = "Results"
-		
-		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
-		configInputBlockType = "astm_hbl"
+
+		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
 	)
 
@@ -98,7 +151,6 @@ func TestConvertWithConverter(t *testing.T) {
 	t.Log(success, "TestConvertMsg right")
 }
 
-
 // [ADDED TEST FOR EVERY FUNCTION OF CONVERTING]
 /*
 func TestNotLinkedTag(t *testing.T) {}
@@ -120,7 +172,6 @@ func TestReadJSONConfigBlock(t *testing.T) {
 		cfgInBlockName = "astm_hbl"
 	)
 
-
 	Modification, err := hl7converter.ReadJSONConfigBlock(configPath, cfgInBlockName)
 	if err != nil || Modification == nil {
 		t.Fatal(err)
@@ -128,7 +179,6 @@ func TestReadJSONConfigBlock(t *testing.T) {
 
 	t.Log(success, "------Success reading modification by JSON------")
 }
-
 
 /*
 var (
@@ -188,3 +238,45 @@ var (
 )
 
 */
+
+func TestConverterTempalateParse(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		output  []int
+		wantErr bool
+	}{
+		{
+			name: "Ok - full line",
+			input: "1.1^<H-2>^MINDRAY",
+			output: []int{1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1},
+			wantErr: false,
+		},
+		{
+			name:  "ok - just link",
+			input: "<H-2>",
+			output: []int{0, 0, 0, 0, 0},
+			wantErr: false,
+		},
+	}
+
+	conv := hl7converter.Converter{}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mask, err := conv.TempalateParse(tt.input)
+
+			if slices.Compare(mask, tt.output) != 0 {
+				t.Fatal("incorrect answer", "current output", mask, "wait output", tt.output)
+			}
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			t.Logf("%s ------Success %s------", success, tt.name)
+		})
+	}
+}

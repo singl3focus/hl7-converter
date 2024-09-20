@@ -40,9 +40,9 @@
                 "MSH": {
                     "linked": "H",
                     "count": 1,
-                    "fields_number": 19,
                     "options": ["autofill"],
-                    "template": "H|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII"
+                    "fields_number": 19,
+                    "template": "H|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
                 }
             }
         }

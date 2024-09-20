@@ -1,8 +1,9 @@
 package hl7converter
 
 import (
-	"os"
 	"encoding/json"
+	"errors"
+	"os"
 
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -44,7 +45,7 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 		
 	jsonData, err := json.Marshal(dataBlock) // Marshal block data in order to convert block to needed structure 
     if err != nil {
-        return nil, nil
+        return nil, err
     }
 
 	var obj Modification
@@ -71,6 +72,20 @@ func validateJSONConfig(p string) (bool, error) {
     if result.Valid() {
         return true, nil
     }
+
+	if len(result.Errors()) > 0 {
+		var errorStr string
+
+		for i, err := range result.Errors() {
+			errorStr += err.Description()
+
+			if i != len(result.Errors()) - 1 {
+				errorStr += "\n"
+			}
+		}
+
+		return false, errors.New(errorStr)
+	}
 
 	return false, ErrInvalidConfig
 }

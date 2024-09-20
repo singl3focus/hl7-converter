@@ -64,8 +64,8 @@ func ConvertToMSG(p ConverterParams , fullMsg []byte) (*Msg, error) {
 		rowFields := strings.Split(token, p.inMod.FieldSeparator)
 
 		tag, fields := rowFields[0], rowFields[1:]
-		if _, ok := p.inMod.Tags[tag]; !ok {
-			return nil, fmt.Errorf(ErrUndefinedInputTag, tag)
+		if _, ok := p.inMod.TagsInfo.Tags[tag]; !ok {
+			return nil, fmt.Errorf(ErrUndefinedInputTag, tag, "ConvertToMSG func")
 		}
 
 		processedTag, processedFields := TagName(tag), Fields(fields)
