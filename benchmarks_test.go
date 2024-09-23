@@ -4,7 +4,7 @@ import (
 	"testing"
 	"path/filepath"
 
-	hl7converter "github.com/singl3focus/hl7-converter"
+    "github.com/singl3focus/hl7-converter"
 )
 
 func BenchmarkConvertWithConverter(b *testing.B) {
@@ -18,8 +18,8 @@ func BenchmarkConvertWithConverter(b *testing.B) {
 	
 		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
 		
-		configInputBlockType = "hl7_astm_hbl"
-		configOutputBlockType = "hl7_mindray_hbl"
+		configInputBlockType = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
 	)
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
@@ -28,7 +28,6 @@ func BenchmarkConvertWithConverter(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-
 		_, _, err := hl7converter.Convert(convParams, inputMsgHBL)
 		if err != nil {
 			b.Fatal(err)
@@ -38,26 +37,11 @@ func BenchmarkConvertWithConverter(b *testing.B) {
 	b.Log(success, "TestConvertMsg right")
 }
 
-func BenchmarkReadYamlConfig(b *testing.B) {
-	var (
-		configPath = filepath.Join(workDir, hl7converter.CfgYaml)
-
-		testModification = "hl7_astm_hbl"
-	)
-
-	for i := 0; i < b.N; i++ {
-		inputModification1, err := hl7converter.ReadYAMLConfigBlock(configPath, testModification)
-		if err != nil || inputModification1 == nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkReadJSONConfig(b *testing.B) {
 	var (
 		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
 
-		testModification = "hl7_astm_hbl"
+		testModification = "astm_hbl"
 	)
 
 	for i := 0; i < b.N; i++ {

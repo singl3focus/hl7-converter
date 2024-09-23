@@ -68,35 +68,35 @@ func ConvertWithConverter(cfgPath, cfgInBlockName, cfgOutBlockName string, msg [
 // Details for FUTURE UPDATING
 //
 type ConverterParams struct {
-	inMod, outMod *Modification
-	lineSplit func(data []byte, atEOF bool) (advance int, token []byte, err error)
+	InMod, OutMod *Modification
+	LineSplit func(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
 func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
 	if !strings.Contains(cfgPath, ".json") {
-		return nil, fmt.Errorf("config path %s doesn't contains extension 'json'", cfgPath)
+		return nil, fmt.Errorf(ErrInvalidJsonExtension, cfgPath)
 	}
 
 	inputModification, err := ReadJSONConfigBlock(cfgPath, cfgInBlockName)
 	if err != nil {
 		return nil, err
 	} else if inputModification == nil {
-		return nil, fmt.Errorf("input modification was incorrectly read from the file (path=%s), it's empty", cfgPath)
+		return nil, fmt.Errorf(ErrNilModification, cfgInBlockName, cfgPath)
 	}
 
 	outputModification, err := ReadJSONConfigBlock(cfgPath, cfgOutBlockName)
 	if err != nil {
 		return nil, err
 	} else if outputModification == nil {
-		return nil, fmt.Errorf("output modification was incorrectly read from the file (path=%s), it's empty", cfgPath)
+		return nil, fmt.Errorf(ErrNilModification, cfgOutBlockName, cfgPath)
 	}
 
 	splitByLine := GetCustomSplit(inputModification.LineSeparator)
 	
 	return &ConverterParams{
-		inMod: inputModification,
-		outMod: outputModification,
-		lineSplit: splitByLine,
+		InMod: inputModification,
+		OutMod: outputModification,
+		LineSplit: splitByLine,
 	}, nil
 }
 
@@ -109,7 +109,7 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 // - Return splitted message, Converter (for any using) and an error.
 //
 func Convert(p *ConverterParams, msg []byte) ([][]string, *WrapperConverter, error) {
-	c, err := NewConverter(p.inMod, p.outMod)
+	c, err := NewConverter(p.InMod, p.OutMod)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -131,7 +131,7 @@ func IndetifyMsg(p ConverterParams, msg []byte) (string, error) {
 		return "", err
 	}
 
-	msgType, ok := indetifyMsg(MSG, p.inMod)
+	msgType, ok := indetifyMsg(MSG, p.InMod)
 	if !ok {
 		return "", fmt.Errorf("undefined type, msg: %v", MSG)
 	}

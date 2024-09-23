@@ -1,5 +1,5 @@
 {
-    "hl7_astm_hbl": {
+    "astm_hbl": {
         "component_separator": "^",
         "field_separator": "|",
         "line_separator": "\n",
@@ -8,105 +8,46 @@
             "Results": [["H", "P", "R", "O", "C" ,"L"], ["H", "P", "O", "R", "L"]]
         },
 
-        "tags" : {
-            "H": {
-                "options": ["autofill"],
-                "linked": ["MSH"],
-                "fields_number": 14,
-                "fields": {
-                    "Delimeters": {
-                        "default_value": "\\^&", 
-                        "position": 2
-                    },
-                    "MessageControlID": {
-                        "position": 3,
-                        "linked_fields": ["MSH-10"]
-                    },
-                    "ProccessingID": {
-                        "position": 12,
-                        "linked_fields": ["MSH-11"]
-                    },
-                    "DateAndTime": {
-                        "position": 14,
-                        "linked_fields": ["MSH-7"]
-                    }
-                }
+        "tags_info": {
+            "positions": {
+                "1": "H",
+                "2": "P",
+                "3": "O",
+                "4": "R",
+                "5": "L"
             },
-            
-            "P": {
-                "linked": ["PID"],
-                "fields_number": 31,
-                "fields": {}
-            },
-
-            "O": {
-                "linked": ["OBR"],
-                "fields_number": 31,
-                "fields": {
-                    "SpecimenID": { 
-                        "position": 3,
-                        "linked_fields": ["OBR-3"]
-                    },
-                    "SpecimenDescriptor": {
-                        "components_count": 3,
-                        "position": 16.1,
-                        "linked_fields": ["OBR-16"]
-                    }
-                }
-            },
-
-            "C": {
-                "linked": [],
-                "fields_number": 0,
-                "fields": {}
-            },
-
-            "R": {
-                "linked": ["OBX"],
-                "fields_number": 14,
-                "fields": {
-                    "ManufacturersTestType": { 
-                        "components_count": 7,
-                        "position": 3.4,
-                        "linked_fields": ["OBX-4.1"] 
-                    },
-                    "ManufacturersTestName": {
-                        "components_count": 7,
-                        "position": 3.5,
-                        "linked_fields": ["OBX-4.2"]
-                    },
-                    "TestCode": {
-                        "components_count": 7,
-                        "position": 3.7,
-                        "linked_fields": ["OBX-4.3"] 
-                    },
-                    "DataMeasurementValue": { 
-                        "position": 4,
-                        "linked_fields": ["OBX-6"] 
-                    },
-                    "ResultStatus": { 
-                        "position": 9,
-                        "linked_fields": ["OBX-12"] 
-                    }
-                }
-            },
-
-            "L": {
-                "linked": [],
-                "fields_number": 3,
-                "fields": {
-                    "SequenceNumber": {
-                        "position": 2
-                    },
-                    "TerminatorCode": {
-                        "position": 3
-                    }
+            "tags" : {
+                "H": {
+                    "linked": "MSH",
+                    "fields_number": 14,
+                    "template": "H|??\\^&|<MSH-10>|||||||||<MSH-11>||<MSH-7>"
+                },
+                "C": {},
+                "P": {
+                    "linked": "PID",
+                    "fields_number": 31,
+                    "template": ""
+                },
+                "O": {
+                    "linked": "OBR",
+                    "fields_number": 31,
+                    "template": ""
+                    
+                },
+                "R": {
+                    "linked": "OBX",
+                    "fields_number": 14,
+                    "template": ""
+                },
+                "L": {
+                    "fields_number": 3,
+                    "template": "L|??1|??N"
                 }
             }
         }
     },
 
-    "hl7_mindray_hbl" : {
+    "mindray_hbl" : {
         "component_separator": "^",
         "field_separator": "|",
         "line_separator": "\r",
@@ -115,97 +56,83 @@
             "Results": [["MSH", "PID", "OBR", "OBX"]]
         },
 
-        "tags" : {
-            "MSH": {
-                "linked": ["H"],
-                "fields_number": 19,
-                "fields": {
-                    "Delimeters": {
-                        "default_value": "^\\&",
-                        "position": 2
-                    },
-                    "SendingApplication": {
-                        "default_value": "Manufacturer", 
-                        "position": 3 
-                    },
-                    "SendingFacility": {
-                        "default_value": "Model", 
-                        "position": 4
-                    },
-                    "DateAndTime": { 
-                        "position": 7,
-                        "linked_fields": ["H-14"]
-                    },
-                    "MessageType": {
-                        "default_value": "ORU^R01", 
-                        "position": 9
-                    },
-                    "MessageControlID": { 
-                        "position": 10,
-                        "linked_fields": ["H-3"]
-                    },
-                    "ProccessingID": { 
-                        "position": 11,
-                        "linked_fields": ["H-12"]
-                    },
-                    "VersionID": {
-                        "default_value": "2.3.1", 
-                        "position": 12
-                    }, 
-                    "CharacterSet": {
-                        "default_value": "ASCII", 
-                        "position": 18
-                    }
-                }
+        "tags_info": {
+            "positions": {
+                "1": "MSH",
+                "2": "PID",
+                "3": "OBR",
+                "4": "OBX"
             },
-            "PID": {
-                "linked": ["P"],
-                "fields_number": 30,
-                "fields": {
-                    "ExternalID": {
-                        "position": 3,
-                        "linked_fields": ["O-3"] 
-                    }    
-                }
-            },
-
-            "OBR": {
-                "linked": ["O"],
-                "fields_number": 43,
-                "fields": {
-                    "PlacerOrderNumber": { 
-                        "position": 3,
-                        "linked_fields": ["O-3"]
-                    },
-                    "SpecimenSource":{ 
-                        "position": 16,
-                        "linked_fields": ["O-16.1"]
-                    } 
-                }
-            },
-            
-            "OBX": {
-                "linked": ["R"],
-                "fields_number": 17,
-                "fields": {
-                    "ObservationIdentifier": { 
-                        "position": 4,
-                        "linked_fields": ["R-3.4", "R-3.5", "R-3.7"] 
-                    },
-                    "ObservationSubID": {
-                        "position": 5,
-                        "linked_fields": ["R-3.7"]
-                    },
-                    "ObervationValue": {
-                        "position": 6,
-                        "linked_fields": ["R-4"]
-                    },
-                    "ResultStatus": { 
-                        "position": 12,
-                        "linked_fields": ["R-9"]
-                    }
+            "tags" : {
+                "MSH": {
+                    "linked": "H",
+                    "options": ["autofill"],
+                    "fields_number": 19,
+                    "template": "MSH|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
+                },
+                "PID": {
+                    "linked": "P",
+                    "fields_number": 30,
+                    "template": "PID||<O-3>|||||||||||||||||||||||||||"
+                },
+                "OBR": {
+                    "linked": "O",
+                    "fields_number": 43,
+                    "template": "OBR||<O-3>|||||||||||||<O-16.1>|||||||||||||||||||||||||||"
+                }, 
+                "OBX": {
+                    "linked": "R",
+                    "fields_number": 17,
+                    "template": "OBX|||<R-3.4>^<R-3.5>^<R-3.7>|<R-3.7>|<R-4>||||||<R-9>|||||"
                 }
             }
         }
-    }       
+    },
+    
+    "astm_hbl_single": {
+        "component_separator": "^",
+        "field_separator": "|",
+        "line_separator": "\n",
+
+        "types": {
+            "Results": [["H", "P", "R", "O", "C" ,"L"], ["H", "P", "O", "R", "L"]]
+        },
+
+        "tags_info": {
+            "positions": {
+                "1": "H"
+            },
+            "tags" : {
+                "H": {
+                    "linked": "MSH",
+                    "fields_number": 14,
+                    "template": "H|??\\^&|<MSH-10>|||||||||<MSH-11>||<MSH-7>"
+                }
+            }
+        }
+    },
+
+    "mindray_hbl_single" : {
+        "component_separator": "^",
+        "field_separator": "|",
+        "line_separator": "\r",
+
+        "types": {
+            "Results": [["MSH", "PID", "OBR", "OBX"]]
+        },
+
+        "tags_info": {
+            "positions": {
+                "1": "MSH"
+            },
+            "tags" : {
+                "MSH": {
+                    "linked": "H",
+                    "options": ["autofill"],
+                    "fields_number": 19,
+                    "template": "MSH|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
+                }
+            }
+        }
+    } 
 }

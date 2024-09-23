@@ -23,7 +23,7 @@ func NewWrapperConverter(c *Converter) (*WrapperConverter) {
 		inM: c.Input,
 		outM: c.Output,
 		lineSplit: c.LineSplit,
-		inMsg: c.InMsg,
+		inMsg: c.MsgSource,
 	}
 }
 

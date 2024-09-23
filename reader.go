@@ -1,11 +1,11 @@
 package hl7converter
 
 import (
-	"os"
 	"encoding/json"
+	"errors"
+	"os"
 
 	"github.com/xeipuuv/gojsonschema"
-	"gopkg.in/yaml.v2"
 )
 
 // readJSONConfig
@@ -45,7 +45,7 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 		
 	jsonData, err := json.Marshal(dataBlock) // Marshal block data in order to convert block to needed structure 
     if err != nil {
-        return nil, nil
+        return nil, err
     }
 
 	var obj Modification
@@ -73,48 +73,19 @@ func validateJSONConfig(p string) (bool, error) {
         return true, nil
     }
 
+	if len(result.Errors()) > 0 {
+		var errorStr string
+
+		for i, err := range result.Errors() {
+			errorStr += err.Description()
+
+			if i != len(result.Errors()) - 1 {
+				errorStr += "\n"
+			}
+		}
+
+		return false, errors.New(errorStr)
+	}
+
 	return false, ErrInvalidConfig
-}
-
-
-
-// ReadYAMLConfigBlock (config path, block name (name needed json block))
-//
-// Deprecated: The yaml unmarshaling not checking by schema and no reccomend use yaml config for converting,
-// use ReadJSONConfigBlock instead. 
-func ReadYAMLConfigBlock(p, bN string) (*Modification, error) {
-	dataFile, err := os.ReadFile(p) // Reading config file
-	if err != nil {
-		return nil, err
-	}
-
-	objMap := make(map[string]any)
-	err = yaml.Unmarshal(dataFile, &objMap) // Unmrashal config data to map
-	if err != nil {
-		return nil, err
-	}
-
-
-	value, ok := objMap[bN] // Get needed blockName from map
-	if !ok {
-		return nil, ErrModificationNotFound
-	}
-
-	dataBlock, ok  := value.(map[any]any) // Check type blockName
-	if !ok {
-		return nil, ErrInvalidYAML
-	}
-		
-	yamlData, err := yaml.Marshal(dataBlock) // Marshal block data in order to convert block to needed structure 
-    if err != nil {
-        return nil, err
-    }
-
-	var obj Modification	
-	err = yaml.Unmarshal(yamlData, &obj) // Unmarshal block data to convert to needed structure
-	if err != nil {
-		return nil, err
-	}
-
-	return &obj, nil
 }

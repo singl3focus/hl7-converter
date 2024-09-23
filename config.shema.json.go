@@ -14,11 +14,9 @@ var jsonSchema = `{
             "component_separator" : {
                 "type": "string"
             },
-
             "field_separator": {
                 "type": "string"
             },
-        
             "line_separator": {
                 "type": "string"
             },
@@ -28,7 +26,6 @@ var jsonSchema = `{
                 "additionalProperties": {
                     "type": "array",
                     "description": "array of arrrays tags which define some msg type",
-                    
                     "items": {
                         "type": "array",
                         "description": "array tags which define some msg type",
@@ -42,79 +39,55 @@ var jsonSchema = `{
                 }
             },
 
-            "tags": {
-                "type": "object", 
-                "description": "Modification tags",
-
-                "additionalProperties": {
+            "tags_info": {
+                "positions" : {
                     "type": "object",
-                    "description": "single tag",
+                    "additionalProperties": {
+                        "type": "object"
+                    }
+                },    
 
-                    "properties": {
-                        "options": {
-                            "description": "options for the tag",
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "examples" : "autofill"
-                            },
+                "tags": {
+                    "type": "object",
 
-                            "uniqueItems": true
-                        },
+                    "additionalProperties": {
+                        "type": "object",
+                        "description": "single tag",
 
-                        "linked" : {
-                            "description": "link(s) by other tags",
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "examples" : "MSH"
-                            },
-
-                            "uniqueItems": true
-                        },
-
-                        "fields_number" : {
-                            "description": "count of fields in row with tag",
-                            "type": "integer"
-                        },
-
-                        "fields": {
-                            "type": "object",
-                            "description": "fields of row",
-
-                            "additionalProperties": {
-                                "type": "object",
-                                "description": "field of tag",
-
-                                "properties": {
-                                    "default_value": {
-                                        "description": "default value for field",
-                                        "type": "string"
-                                    },
-                                    "position": {
-                                        "description": "position field in row",
-                                        "type": "number"
-                                    },
-                                    "components_count": {
-                                        "description": "if position field is float, then number of components must be specified here",
-                                        "type": "integer"
-                                    },
-                                    "linked_fields": {
-                                        "description": "The unique identifier for a product",
-                                        "type": "array"
-                                    }
+                        "properties": {
+                            "options": {
+                                "description": "options for the tag",
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "examples" : "autofill"
                                 },
 
-                                "required": ["position"]
+                                "uniqueItems": true
+                            },
+
+                            "linked" : {
+                                "description": "link by other tag",
+                                "type": "string"
+                            },
+
+                            "fields_number" : {
+                                "description": "count of fields in row with tag",
+                                "type": "integer"
+                            },
+
+                            "template" : {
+                                "description": "template for filling values by this tag",
+                                "type": "string"
                             }
                         }
                     },
 
-                    "required": ["linked", "fields_number", "fields"]
+                    "required": ["linked", "fields_number", "template"]
                 }
             }  
         },
     
-        "required": ["component_separator", "field_separator", "line_separator", "tags"]
+        "required": ["component_separator", "field_separator", "line_separator", "tags_info"]
     }    
 }`
