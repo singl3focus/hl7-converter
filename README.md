@@ -16,9 +16,14 @@ You send full message as []byte to "Converter" and convert it with "Converter.Co
 As a response, you will receive rows splited by field separator - this is done so that it is convenient to work on the line on top of the conversion. And after any your manipulation on any row, you can assemble it with "Converter.AssembleOutput".
 
 ## Usage
-```go get github.com/singl3focus/hl7-converter```  
+1. **Get package**
+```go get github.com/singl3focus/hl7-converter@TAG```
 
-Example of converting:
+- Tag representations: \
+vX.X.X - for using on many platforms \
+vX.X.X-go1.20 - for building on Windows 7 
+
+2. **Example of converting**:
 ```
 Input (you send full message as []byte):
 	"H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
@@ -55,22 +60,27 @@ const (
 )
 
 func main() {
-	// Reference:
-	// 
-	//
-
 	msg := []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
 		"P|1||||^||||||||||||||||||||||||||||\n" +
 		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
 		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
 		"L|1|N") 
 
-	ready, msgType, err := hl7converter.ConvertWithConverter(configFilename, configInputBlockType, configOutputBlockType, inputMsgHBL)
+	convParams, err := hl7converter.NewConverterParams(configFilename, configInputBlockType, configOutputBlockType)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
+	ready, _, err := hl7converter.Convert(convParams, inputMsgHBL)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	/* YOU CAN ASSEMBLY MESSAGE OR CHANGE ANY FIELD JUST WITH INDEX*/
+	
+	// example of assemle message
 	res := make([]byte, 0, 1024)
 	for i, rowFields := range ready {
 		readyRow := strings.Join(rowFields, "|")
@@ -93,14 +103,12 @@ func main() {
 
 ### Advices
 1) **When you are filling any modification that you should be guided by the fact that this Transformation will occur based on the output modification, and not the input one.**
-
+2) ! **Now converter works by principle of create output rows based on Output Modification, it's means that you always can get rows according to the templates specified in Output Modification** !
 
 ### Rules
 - **See examples and fill it out like**
 
 #### Template filling
--
--
 
 #### JSON
 - All keys in JSON must be string
@@ -113,6 +121,7 @@ If you meet that line separator equal component separator, you need change all c
 - If you set `fields_numbe more than 0`, converter will be `compare fields_number and template fields_number` . If you set `fields_number = -1`, it's not be checking
 - **It was decided that the `default_value (which specified with help 'OR' symbol)` of the field should not be substituted for the `template`, this was done so that the developer aimed at obtaining values through the template could be guaranteed to make sure that an error would come.**
 
+[Deprecated]
 - if you specify multiple values in array, they must be separated by a comma ***(,)***
 - in case if linked tags has more than one match will be choose first one 
 - field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of all separators, else you can get incorrect conversion
@@ -126,7 +135,7 @@ If you meet that line separator equal component separator, you need change all c
 > if you want this not to happen, just delete the "default_value" field in the configuration
 
 
-### Structure
+### Structure [Deprecated]
 - First comes the name of the config(*example: "device_protocol"*), then the delimiter fields and an array of tags.
 
 - If tag hasn't have Linked - write [""]. It's will be means that this tag couldn't have links with other tags, but other tags could be have links with this tag.

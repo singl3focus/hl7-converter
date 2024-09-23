@@ -10,14 +10,38 @@
 
         "tags_info": {
             "positions": {
-                "1": "H"
+                "1": "H",
+                "2": "P",
+                "3": "O",
+                "4": "R",
+                "5": "L"
             },
             "tags" : {
                 "H": {
                     "linked": "MSH",
-                    "count": 1,
                     "fields_number": 14,
                     "template": "H|??\\^&|<MSH-10>|||||||||<MSH-11>||<MSH-7>"
+                },
+                "C": {},
+                "P": {
+                    "linked": "PID",
+                    "fields_number": 31,
+                    "template": ""
+                },
+                "O": {
+                    "linked": "OBR",
+                    "fields_number": 31,
+                    "template": ""
+                    
+                },
+                "R": {
+                    "linked": "OBX",
+                    "fields_number": 14,
+                    "template": ""
+                },
+                "L": {
+                    "fields_number": 3,
+                    "template": "L|??1|??N"
                 }
             }
         }
@@ -34,17 +58,81 @@
 
         "tags_info": {
             "positions": {
+                "1": "MSH",
+                "2": "PID",
+                "3": "OBR",
+                "4": "OBX"
+            },
+            "tags" : {
+                "MSH": {
+                    "linked": "H",
+                    "options": ["autofill"],
+                    "fields_number": 19,
+                    "template": "MSH|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
+                },
+                "PID": {
+                    "linked": "P",
+                    "fields_number": 30,
+                    "template": "PID||<O-3>|||||||||||||||||||||||||||"
+                },
+                "OBR": {
+                    "linked": "O",
+                    "fields_number": 43,
+                    "template": "OBR||<O-3>|||||||||||||<O-16.1>|||||||||||||||||||||||||||"
+                }, 
+                "OBX": {
+                    "linked": "R",
+                    "fields_number": 17,
+                    "template": "OBX|||<R-3.4>^<R-3.5>^<R-3.7>|<R-3.7>|<R-4>||||||<R-9>|||||"
+                }
+            }
+        }
+    },
+    
+    "astm_hbl_single": {
+        "component_separator": "^",
+        "field_separator": "|",
+        "line_separator": "\n",
+
+        "types": {
+            "Results": [["H", "P", "R", "O", "C" ,"L"], ["H", "P", "O", "R", "L"]]
+        },
+
+        "tags_info": {
+            "positions": {
+                "1": "H"
+            },
+            "tags" : {
+                "H": {
+                    "linked": "MSH",
+                    "fields_number": 14,
+                    "template": "H|??\\^&|<MSH-10>|||||||||<MSH-11>||<MSH-7>"
+                }
+            }
+        }
+    },
+
+    "mindray_hbl_single" : {
+        "component_separator": "^",
+        "field_separator": "|",
+        "line_separator": "\r",
+
+        "types": {
+            "Results": [["MSH", "PID", "OBR", "OBX"]]
+        },
+
+        "tags_info": {
+            "positions": {
                 "1": "MSH"
             },
             "tags" : {
                 "MSH": {
                     "linked": "H",
-                    "count": 1,
                     "options": ["autofill"],
                     "fields_number": 19,
-                    "template": "H|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
+                    "template": "MSH|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
                 }
             }
         }
-    }       
+    } 
 }

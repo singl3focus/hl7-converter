@@ -28,7 +28,7 @@ type Converter struct {
 
 func NewConverter(in, out *Modification) (*Converter, error) {
 	msg := &Msg{
-		Tags: make(map[TagName]SliceOfTag),
+		Tags: make(map[TagName]SliceFields),
 	}
 
 	converter := &Converter{
@@ -72,15 +72,13 @@ func GetCustomSplit(sep string) func(data []byte, atEOF bool) (advance int, toke
 }
 
 // ParseMsg return 'map[TagName]SliceOfTag' model for get fields data specified in output modification.
-func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceOfTag, error) {
-	tags := make(map[TagName]SliceOfTag)
+func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
+	tags := make(map[TagName]SliceFields)
 
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
 	scanner.Split(c.LineSplit)
 
 	for scanner.Scan() {
-		temp := make(TagValues)
-
 		token := scanner.Text() // [DEV] getting string representation of row
 		rowFields := strings.Split(token, c.Input.FieldSeparator)
 
@@ -92,14 +90,11 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceOfTag, error) {
 		tempTag, tempFields := c.handleOptions(tag, fields) // [TODO] UPGRADE OPTIONS
 		processedTag, processedFields := TagName(tempTag), Fields(tempFields)
 
-		temp[processedTag] = processedFields
-
 		if _, ok := tags[processedTag]; ok {
-			tags[processedTag] = append(tags[processedTag], temp)
-
+			tags[processedTag] = append(tags[processedTag], processedFields)
 		} else {
-			tags[processedTag] = make(SliceOfTag, 0, 1)
-			tags[processedTag] = append(tags[processedTag], temp)
+			tags[processedTag] = make(SliceFields, 0, 1)
+			tags[processedTag] = append(tags[processedTag], processedFields)
 		}
 	}
 
@@ -144,18 +139,36 @@ func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 	}
 	c.MsgSource.Tags = tags
 
+	
 	// _________prepare 'Ordered Slice of Tags' for convert
-	tempNumbers := make([]string, 0, 1)
+	tempNumbers := make([]int, 0, 1)
 	for key, _ := range c.Output.TagsInfo.Positions {
-		tempNumbers = append(tempNumbers, key)
+		k, err := strconv.Atoi(key)
+		if err != nil {
+			return nil, err
+		}
+		tempNumbers = append(tempNumbers, k)
 	}
-	sort.Strings(tempNumbers)
+	sort.Ints(tempNumbers)
 
 	OutputTags := make([]string, 0, len(tempNumbers))
 	for _, key := range tempNumbers {
-		OutputTags = append(OutputTags, c.Output.TagsInfo.Positions[key])
+		OutputTags = append(OutputTags, c.Output.TagsInfo.Positions[strconv.Itoa(key)])
 	}
 
+	// _________set output count of tags  
+	for _, outputTag := range OutputTags {
+		tag := c.Output.TagsInfo.Tags[outputTag] 
+
+		if s, ok := tags[TagName(c.Output.TagsInfo.Tags[outputTag].Linked)]; !ok {
+			tag.Count = 1
+		} else {
+			tag.Count = len(s)
+		}
+
+		c.Output.TagsInfo.Tags[outputTag] = tag
+	}
+ 
 	return c.convert(OutputTags)
 }
 
@@ -209,10 +222,13 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]string, 
 
 	tempLine[0] = rowData[ignoredIndx] // first position is always placed by Tag
 
+	// [DEV] - fieldPosition started from '0' not from 'ignoredIndx+1'
 	for fieldPosition, fieldValue := range rowData[ignoredIndx+1:] {
 		if fieldValue == "" {
 			continue
 		}
+
+		fieldPosition++ // because we started fro, 'ignoredIndx+1'
 
 		fieldBlocks := strings.Split(fieldValue, OR)
 
@@ -297,12 +313,12 @@ func (c *Converter) getFieldValue(mask []int, str string) (string, error) {
 			var link string // // parse: Tag-Position (Without '<', '>')
 			for j := i; j < len(str); j++ {
 				if (mask[j] == itSymbol){
-					link = str[ i+1 : j-2 ]		
-					i = j
+					link = str[ i+1 : j-1 ]		
+					i = j-1 // subtract '1' because next step will be increment
 					break
 				} else if (j == len(str)-1) {
 					link = str[ i+1 : j ]		
-					i = j
+					i = j // cycle must be ended
 					break
 				}
 			}
@@ -360,12 +376,14 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 	}
 
 	// [NOTE]: Be carefull with indexes
+	differenceIndexes := 2
+
 	if isInt(position) {
-		value = inTagInfo[PointerIndx][TagName(matchingTag)][int(position) - 1] 
+		value = inTagInfo[PointerIndx][int(position) - differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]), 
 	} else {
-		fieldPosIndx, componentPosIndx := int(position) - 1, getTenth(position) - 1
+		fieldPosIndx, componentPosIndx := int(position) - differenceIndexes, getTenth(position) - 1
 		
-		fieldValue := inTagInfo[PointerIndx][TagName(matchingTag)][fieldPosIndx]
+		fieldValue := inTagInfo[PointerIndx][fieldPosIndx]
 
 		components := strings.Split(fieldValue, c.Input.ComponentSeparator)
 		if len(components) == 1 {

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"reflect"
 	"path/filepath"
 
 	hl7converter "github.com/singl3focus/hl7-converter"
@@ -31,15 +32,12 @@ func init() {
 
 func TestConvertWithConverterRow(t *testing.T) {
 	var (
-		outputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327")
-
-		inputMsgHBL = []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|")
-
-		// outputMsgTypeHBL = "Results"
+		inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327")
+		outputMsgHBL = []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|")
 
 		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
-		configInputBlockType  = "mindray_hbl"
-		configOutputBlockType = "astm_hbl"
+		configInputBlockType  = "astm_hbl_single"
+		configOutputBlockType = "mindray_hbl_single"
 	)
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
@@ -47,10 +45,6 @@ func TestConvertWithConverterRow(t *testing.T) {
 		t.Fatalf("------%s------", err.Error())
 	}
 
-	// msgType, err := hl7converter.IndetifyMsg(*convParams, inputMsgHBL)
-	// if err != nil {
-	// 	t.Fatalf("------%s------", err.Error())
-	// }
 
 	ready, _, err := hl7converter.Convert(convParams, inputMsgHBL)
 	if err != nil {
@@ -69,13 +63,8 @@ func TestConvertWithConverterRow(t *testing.T) {
 		}
 	}
 
-	// t.Log("message type:", msgType)
-	// if msgType != outputMsgTypeHBL {
-	// 	t.Fatal("------message type is wrong------")
-	// }
-
 	if !(string(res) == string(outputMsgHBL)) {
-		t.Fatal("------converted msg is wrong------")
+		t.Fatal("------converted msg is wrong------", "wait", string(outputMsgHBL), "current", string(res))
 	}
 
 	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
@@ -93,8 +82,6 @@ func TestConvertWithConverterMultiRows(t *testing.T) {
 			"C|||||||||||||||\n" +
 			"C|||||||||||||||\n" +
 			"C|||||||||||||||\n" +
-			"C|||||||||||||||\n" +
-			"C|||||||||||||||\n" +
 			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
 			"L|1|N")
 
@@ -103,7 +90,8 @@ func TestConvertWithConverterMultiRows(t *testing.T) {
 			"OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" + CR +
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||" + CR +
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||")
-		outputMsgTypeHBL = "Results"
+		
+			outputMsgTypeHBL = "Results"
 
 		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
 		configInputBlockType  = "astm_hbl"
@@ -265,15 +253,67 @@ func TestConverterTempalateParse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mask, err := conv.TempalateParse(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 
 			if slices.Compare(mask, tt.output) != 0 {
 				t.Fatal("incorrect answer", "current output", mask, "wait output", tt.output)
 			}
 
+			t.Logf("%s ------Success %s------", success, tt.name)
+		})
+	}
+}
+
+
+func TestConverterParseMsg(t *testing.T) {
+	var (
+		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configInputBlockType  = "mindray_hbl"
+		configOutputBlockType = "astm_hbl"
+	)
+
+
+	tests := []struct {
+		name    string
+		input   []byte
+		output  map[hl7converter.TagName]hl7converter.SliceFields
+		wantErr bool
+	}{
+		{
+			name:  "Ok - single row",
+			input: []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|"),
+			output: map[hl7converter.TagName]hl7converter.SliceFields{
+				"MSH": {
+					[]string{"^\\&", "Manufacturer", "Model", "", "", "20220327", "", "ORU^R01", "", "P", "2.3.1", "", "", "", "", "", "ASCII", ""}},
+			},
+			wantErr: false,
+		},
+	}
+
+	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
+	if err != nil {
+		t.Fatalf("------%s------", err.Error())
+	}
+	converter, err := hl7converter.NewConverter(convParams.InMod, convParams.OutMod)
+	if err != nil {
+		t.Fatalf("------%s------", err.Error())
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := converter.ParseMsg(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+			}
+
+			if !reflect.DeepEqual(res, tt.output) {
+				t.Fatal("incorrect answer", "current output", res, "wait output", tt.output)
 			}
 
 			t.Logf("%s ------Success %s------", success, tt.name)

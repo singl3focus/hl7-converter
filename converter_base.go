@@ -52,32 +52,27 @@ func indetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 // - We can do without copying the structure MSG
 //
 func ConvertToMSG(p ConverterParams , fullMsg []byte) (*Msg, error) {
-	tags := make(map[TagName]SliceOfTag)
+	tags := make(map[TagName]SliceFields)
 
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
-	scanner.Split(p.lineSplit)
+	scanner.Split(p.LineSplit)
 
 	for scanner.Scan() {
-		temp := make(TagValues)
-
 		token := scanner.Text() // [DEV] getting string representation of row
-		rowFields := strings.Split(token, p.inMod.FieldSeparator)
+		rowFields := strings.Split(token, p.InMod.FieldSeparator)
 
 		tag, fields := rowFields[0], rowFields[1:]
-		if _, ok := p.inMod.TagsInfo.Tags[tag]; !ok {
+		if _, ok := p.InMod.TagsInfo.Tags[tag]; !ok {
 			return nil, fmt.Errorf(ErrUndefinedInputTag, tag, "ConvertToMSG func")
 		}
 
 		processedTag, processedFields := TagName(tag), Fields(fields)
 		
-		temp[processedTag] = processedFields
-
 		if _, ok := tags[processedTag]; ok {
-			tags[processedTag] = append(tags[processedTag], temp)
-
+			tags[processedTag] = append(tags[processedTag], processedFields)
 		} else {
-			tags[processedTag] = make(SliceOfTag, 0, 10) // [MAGIC] note - capacity is 10 because it's optimal value, which describe average rows of message
-			tags[processedTag] = append(tags[processedTag], temp)
+			tags[processedTag] = make(SliceFields, 0, 1) 
+			tags[processedTag] = append(tags[processedTag], processedFields)
 		}
 	}
 

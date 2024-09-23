@@ -68,8 +68,8 @@ func ConvertWithConverter(cfgPath, cfgInBlockName, cfgOutBlockName string, msg [
 // Details for FUTURE UPDATING
 //
 type ConverterParams struct {
-	inMod, outMod *Modification
-	lineSplit func(data []byte, atEOF bool) (advance int, token []byte, err error)
+	InMod, OutMod *Modification
+	LineSplit func(data []byte, atEOF bool) (advance int, token []byte, err error)
 }
 
 func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
@@ -94,9 +94,9 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 	splitByLine := GetCustomSplit(inputModification.LineSeparator)
 	
 	return &ConverterParams{
-		inMod: inputModification,
-		outMod: outputModification,
-		lineSplit: splitByLine,
+		InMod: inputModification,
+		OutMod: outputModification,
+		LineSplit: splitByLine,
 	}, nil
 }
 
@@ -109,7 +109,7 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 // - Return splitted message, Converter (for any using) and an error.
 //
 func Convert(p *ConverterParams, msg []byte) ([][]string, *WrapperConverter, error) {
-	c, err := NewConverter(p.inMod, p.outMod)
+	c, err := NewConverter(p.InMod, p.OutMod)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -131,7 +131,7 @@ func IndetifyMsg(p ConverterParams, msg []byte) (string, error) {
 		return "", err
 	}
 
-	msgType, ok := indetifyMsg(MSG, p.inMod)
+	msgType, ok := indetifyMsg(MSG, p.InMod)
 	if !ok {
 		return "", fmt.Errorf("undefined type, msg: %v", MSG)
 	}

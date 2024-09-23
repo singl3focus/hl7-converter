@@ -76,11 +76,6 @@ var jsonSchema = `{
                                 "type": "integer"
                             },
 
-                            "count" : {
-                                "description": "count of rows by the same tag",
-                                "type": "integer"
-                            },
-
                             "template" : {
                                 "description": "template for filling values by this tag",
                                 "type": "string"
@@ -88,7 +83,7 @@ var jsonSchema = `{
                         }
                     },
 
-                    "required": ["linked", "fields_number", "count", "template"]
+                    "required": ["linked", "fields_number", "template"]
                 }
             }  
         },

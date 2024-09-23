@@ -20,7 +20,7 @@ type TagsInfo struct {
 }
 
 type Tag struct {
-	Count        int    `json:"count"`
+	Count        int    `json:"-"`
 	Linked       string `json:"linked"`
 	FieldsNumber int    `json:"fields_number"`
 	Tempalate    string `json:"template"`
@@ -34,10 +34,8 @@ type Tag struct {
 
 type TagName string
 type Fields []string
-type TagValues map[TagName]Fields
-
-type SliceOfTag []TagValues
+type SliceFields []Fields
 
 type Msg struct {
-	Tags map[TagName]SliceOfTag
+	Tags map[TagName]SliceFields
 }
