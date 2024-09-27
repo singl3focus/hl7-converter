@@ -108,7 +108,7 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 // - Can works only with JSON Config.
 // - Return splitted message, Converter (for any using) and an error.
 //
-func Convert(p *ConverterParams, msg []byte) ([][]string, *WrapperConverter, error) {
+func Convert(p *ConverterParams, msg []byte) (*Result, *WrapperConverter, error) {
 	c, err := NewConverter(p.InMod, p.OutMod)
 	if err != nil {
 		return nil, nil, err

@@ -21,7 +21,6 @@ const ( // [SPECIAL CONVERTER SYMBOLS]
 	linkElemEnd = ">"
 	linkToField = "-"
 
-	AND = "$$" // ??? - maybe alias for component separator
 	OR  = "??"
 
 	itSymbol = 1
@@ -32,6 +31,9 @@ var (
 	mapOfOptions = map[string]string{
 		"autofill": "automaticly adding  empty fields by count of differents about fields_number and current_fields_number",
 	}
+
+
+	_ = mapOfOptions
 )
 
 /*
@@ -86,4 +88,13 @@ const ( // [CONVERTING f-ERRORS]
 	ErrWrongComponentSplit      = "incorrect field %s, the field component could not be pulled out"
 
 	ErrManyMultiTags = "converter can working with one multi tag not more, wait: %s, receive: %s"
+)
+
+
+/*
+	Main Model Errors
+*/
+
+var (
+	ErrIndexOutOfRange = ("Index(value=%d) out of range")
 )
