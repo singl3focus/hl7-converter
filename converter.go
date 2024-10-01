@@ -88,7 +88,7 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
 		}
 
 		tempTag, tempFields := c.handleOptions(tag, fields) // [TODO] UPGRADE OPTIONS
-		processedTag, processedFields := TagName(tempTag), Fields(tempFields)
+		processedTag, processedFields := TagName(tempTag), TagFields(tempFields)
 
 		if _, ok := tags[processedTag]; ok {
 			tags[processedTag] = append(tags[processedTag], processedFields)
@@ -130,7 +130,7 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 }
 
 // Convert
-func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
+func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
 
 	// _________fill MsgSource in Converter structure
 	tags, err := c.ParseMsg(fullMsg)
@@ -168,12 +168,21 @@ func (c *Converter) Convert(fullMsg []byte) ([][]string, error) {
 
 		c.Output.TagsInfo.Tags[outputTag] = tag
 	}
- 
-	return c.convert(OutputTags)
+	
+	// _________get result
+	var result = &Result{}
+	rows, err := c.convert(OutputTags)
+	if err != nil {
+		return nil, err
+	}
+	result.LineSeparator = c.Output.LineSeparator
+	result.Rows = rows
+
+	return result, err
 }
 
-func (c *Converter) convert(orderedTags []string) ([][]string, error) {
-	splitedRows := make([][]string, 0, 1)
+func (c *Converter) convert(orderedTags []string) ([]*Row, error) {
+	rows := make([]*Row, 0, 1)
 	for _, tag := range orderedTags {
 		TagInfo, ok := c.Output.TagsInfo.Tags[tag]
 		if !ok {
@@ -183,22 +192,26 @@ func (c *Converter) convert(orderedTags []string) ([][]string, error) {
 		for i := 0; i < TagInfo.Count; i++ {
 			PointerIndx = i
 
+			var result = &Row{}
 			row, err := c.convertTag(tag, &TagInfo)
 			if err != nil {
 				return nil, err
 			}
 
-			splitedRows = append(splitedRows, row)
+			result.FieldSeparator = c.Output.FieldSeparator
+			result.Fields = row
+
+			rows = append(rows, result)
 		}
 
 		c.ResetParams() // clear pointer indx for next tag
 	}
 
-	return splitedRows, nil
+	return rows, nil
 }
 
 // convertTag
-func (c *Converter) convertTag(TagName string, TagInfo *Tag) ([]string, error) {
+func (c *Converter) convertTag(TagName string, TagInfo *Tag) ([]*Field, error) {
 	row := strings.Split(TagInfo.Tempalate, c.Output.FieldSeparator) // REPEAT BLOCK OF SPLITS
 
 	if TagInfo.FieldsNumber != ignoredFieldsNumber {
@@ -217,10 +230,14 @@ func (c *Converter) convertTag(TagName string, TagInfo *Tag) ([]string, error) {
 }
 
 // assembleOutRow creates outLine and fills it. Also inserts component separators in fields with components.
-func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]string, error) {
-	tempLine := make([]string, inTagInfo.FieldsNumber) // temp slice was initially filled by default value:""
+func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, error) {
+	tempLine := make([]*Field, inTagInfo.FieldsNumber) // temp slice was initially filled by default value:""
+	for i := range tempLine {
+        tempLine[i] = &Field{} // Init empty values for tempLine
+    }
 
-	tempLine[0] = rowData[ignoredIndx] // first position is always placed by Tag
+	
+	tempLine[0].Value = rowData[ignoredIndx] // first position is always placed by Tag
 
 	// [DEV] - fieldPosition started from '0' not from 'ignoredIndx+1'
 	for fieldPosition, fieldValue := range rowData[ignoredIndx+1:] {
@@ -244,7 +261,7 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]string, 
 				return nil, err
 			}
 
-			tempLine[fieldPosition] = value
+			tempLine[fieldPosition].Value = value
 		case 2: // MUST BE TEMPLATE OR DEFAULT_VALUE
 			if fieldBlocks[0] != "" {
 				mask, err := c.TempalateParse(fieldBlocks[0])
@@ -257,14 +274,14 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]string, 
 					return nil, err
 				}
 
-				tempLine[fieldPosition] = value
+				tempLine[fieldPosition].Value = value
 			} else {
 				value, err := c.getDefaultFieldValue(fieldBlocks[1])
 				if err != nil {
 					return nil, err
 				}
 
-				tempLine[fieldPosition] = value
+				tempLine[fieldPosition].Value = value
 			}
 
 

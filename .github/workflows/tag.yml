@@ -1,3 +1,30 @@
+# name: Auto Tag
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   tag:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Create tag
+#         id: tag
+#         run: echo "TAG=v1.0.${{ github.run_number }}" >> $GITHUB_ENV
+
+#       - name: Push tag
+#         run: |
+#           git config --local user.email "actions@github.com"
+#           git config --local user.name "GitHub Actions"
+#           git tag ${{ env.TAG }}
+#           git push origin ${{ env.TAG }}
+
+
 name: Auto Tag
 
 on:
@@ -13,9 +40,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get previous version
+        id: get_version
+        run: | # Получаем последний тег в формате "vX.Y.Z"
+          TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          echo "Current tags: $TAG"
+          if [ -z "$TAG" ]; then
+            echo "TAG=v1.0.0" >> $GITHUB_ENV
+          else
+            echo "TAG=$TAG" >> $GITHUB_ENV
+          fi
+
+      - name: Determine new version
+        id: version
+        run: |  # Извлекаем Major, Minor и Patch из тега
+          IFS='.' read -r -a version_parts <<< "${{ env.TAG }}"
+          MAJOR=${version_parts[0]:1}
+          MINOR=${version_parts[1]}
+          PATCH=${version_parts[2]}
+
+          git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "major" && (MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0)
+          git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "feat" && (MINOR=$((MINOR + 1)); PATCH=0)
+          git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "fix" && (PATCH=$((PATCH + 1)))
+
+          echo "NEW_TAG=v$MAJOR.$MINOR.$PATCH" >> $GITHUB_ENV
+
       - name: Create tag
         id: tag
-        run: echo "TAG=v1.0.${{ github.run_number }}" >> $GITHUB_ENV
+        run: echo "TAG=${{ env.NEW_TAG }}" >> $GITHUB_ENV
 
       - name: Push tag
         run: |

@@ -66,7 +66,7 @@ func ConvertToMSG(p ConverterParams , fullMsg []byte) (*Msg, error) {
 			return nil, fmt.Errorf(ErrUndefinedInputTag, tag, "ConvertToMSG func")
 		}
 
-		processedTag, processedFields := TagName(tag), Fields(fields)
+		processedTag, processedFields := TagName(tag), TagFields(fields)
 		
 		if _, ok := tags[processedTag]; ok {
 			tags[processedTag] = append(tags[processedTag], processedFields)

@@ -3,7 +3,6 @@ package hl7converter_test
 import (
 	"os"
 	"slices"
-	"strings"
 	"testing"
 	"reflect"
 	"path/filepath"
@@ -51,23 +50,11 @@ func TestConvertWithConverterRow(t *testing.T) {
 		t.Fatalf("------%s------", err.Error())
 	}
 
-	res := make([]byte, 0, 512)
-	for i, rowFields := range ready {
-		t.Logf("%d row: %v\n", i+1, rowFields)
-		readyRow := strings.Join(rowFields, "|")
-		t.Logf("%d combined row: %v\n", i+1, readyRow)
+	res := ready.AssembleMessage()
 
-		res = append(res, []byte(readyRow)...)
-		if i < (len(ready) - 1) {
-			res = append(res, []byte(CR)...)
-		}
-	}
-
-	if !(string(res) == string(outputMsgHBL)) {
+	if !(res == string(outputMsgHBL)) {
 		t.Fatal("------converted msg is wrong------", "wait", string(outputMsgHBL), "current", string(res))
 	}
-
-	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
 
 	t.Log(success, "TestConvertMsg right")
 }
@@ -113,28 +100,17 @@ func TestConvertWithConverterMultiRows(t *testing.T) {
 		t.Fatalf("------%s------", err.Error())
 	}
 
-	res := make([]byte, 0, 512)
-	for i, rowFields := range ready {
-		t.Logf("%d row: %v\n", i+1, rowFields)
-		readyRow := strings.Join(rowFields, "|")
-		t.Logf("%d combined row: %v\n", i+1, readyRow)
-
-		res = append(res, []byte(readyRow)...)
-		if i < (len(ready) - 1) {
-			res = append(res, []byte(CR)...)
-		}
-	}
+	res := ready.AssembleMessage()
 
 	t.Log("message type:", msgType)
 	if msgType != outputMsgTypeHBL {
 		t.Fatal("------message type is wrong------")
 	}
 
-	if !(string(res) == string(outputMsgHBL)) {
-		t.Fatal("------converted msg is wrong------")
+	if !(res == string(outputMsgHBL)) {
+		t.Fatal("------converted msg is wrong------ \n", res)
 	}
 
-	t.Logf("[]byte results len %v and cap %v", len(res), cap(res))
 
 	t.Log(success, "TestConvertMsg right")
 }

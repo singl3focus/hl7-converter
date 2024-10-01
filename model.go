@@ -33,8 +33,8 @@ type Tag struct {
 */
 
 type TagName string
-type Fields []string
-type SliceFields []Fields
+type TagFields []string
+type SliceFields []TagFields
 
 type Msg struct {
 	Tags map[TagName]SliceFields
