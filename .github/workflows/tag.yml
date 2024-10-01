@@ -43,6 +43,7 @@ jobs:
       - name: Get previous version
         id: get_version
         run: | # Получаем последний тег в формате "vX.Y.Z"
+          git fetch --tags
           TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
           echo "Current tags: $TAG"
           if [ -z "$TAG" ]; then
