@@ -10,8 +10,8 @@ import (
 
 // readJSONConfig
 //
-// param::p it's config path
-// param::bТ it's block name (name needed json block)
+// param::p  - it's config path
+// param::bТ - it's block name (name needed json block)
 func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 	ok, err := validateJSONConfig(p)
 	if !ok || err != nil {
@@ -33,13 +33,13 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 
 	value, ok := objMap[bN] // Get needed blockName from map
 	if !ok {
-		return nil, ErrModificationNotFound
+		return nil, NewErrModificationNotFound(bN)
 	}
 
 	
 	dataBlock, ok  := value.(map[string]any) // Check type blockName
 	if !ok {
-		return nil, ErrInvalidJSON
+		return nil, NewErrInvalidJSON(value)
 	}
 	
 		

@@ -1,6 +1,7 @@
 {
     "astm_hbl": {
         "component_separator": "^",
+        "component_array_separator": "",
         "field_separator": "|",
         "line_separator": "\n",
 
@@ -49,6 +50,7 @@
 
     "mindray_hbl" : {
         "component_separator": "^",
+        "component_array_separator": "",
         "field_separator": "|",
         "line_separator": "\r",
 

@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-// Converter
 type Converter struct {
 	/*
 		Data parsed from config.
@@ -24,9 +23,19 @@ type Converter struct {
 
 	// Convertred structure of input message for fast find a needed field by tag
 	MsgSource *Msg
+
+	UsingPositions bool
 }
 
-func NewConverter(in, out *Modification) (*Converter, error) {
+type OptionFunc func(*Converter)
+
+func WithUsingPositions() OptionFunc {
+	return func(n *Converter) {
+	  n.UsingPositions = true
+	}
+}
+
+func NewConverter(in, out *Modification, opts ...OptionFunc) (*Converter, error) {
 	msg := &Msg{
 		Tags: make(map[TagName]SliceFields),
 	}
@@ -34,10 +43,12 @@ func NewConverter(in, out *Modification) (*Converter, error) {
 	converter := &Converter{
 		Input:  in,
 		Output: out,
-
 		LineSplit: GetCustomSplit(in.LineSeparator),
-
 		MsgSource: msg,
+	}
+
+	for _, opt := range opts {
+		opt(converter)
 	}
 
 	return converter, nil
@@ -48,9 +59,11 @@ var (
 	PointerIndx = DefaultValuePointerIndx
 )
 
-func (c *Converter) ResetParams() {
+func (c *Converter) ResetPointerIndx() {
 	PointerIndx = DefaultValuePointerIndx
 }
+
+/*_______________________________________[PARSE MSG AND EXECUTE OPRIONS SPECIFIED IN config]_______________________________________*/
 
 // GetCustomSplit
 func GetCustomSplit(sep string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -84,10 +97,13 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
 
 		tag, fields := rowFields[0], rowFields[1:]
 		if _, ok := c.Input.TagsInfo.Tags[tag]; !ok {
-			return nil, fmt.Errorf(ErrUndefinedInputTag, tag, "ParseMsg func")
+			return nil, NewErrUndefinedInputTag(tag, "ParseMsg func")
 		}
 
-		tempTag, tempFields := c.handleOptions(tag, fields) // [TODO] UPGRADE OPTIONS
+		tempTag, tempFields, err := c.handleOptions(tag, fields) // [TODO] UPGRADE OPTIONS
+		if err != nil {
+			return nil, err
+		}
 		processedTag, processedFields := TagName(tempTag), TagFields(tempFields)
 
 		if _, ok := tags[processedTag]; ok {
@@ -99,22 +115,23 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, ErrInvalidParseMsg
+		return nil, NewErrInvalidParseMsg(err.Error())
 	}
 
 	return tags, nil
 }
 
 // handleOptions
-func (c *Converter) handleOptions(tag string, fields []string) (string, []string) {
+// [NOTE]: CALL PANIC
+func (c *Converter) handleOptions(tag string, fields []string) (string, []string, error) {
 	options := c.Input.TagsInfo.Tags[tag].Options
 
-	newFields := fields
+	newFields := make([]string, 0, len(fields))
+	copy(newFields, fields)
 
 	for _, option := range options {
 		switch option {
-
-		// example: FN - 31(1 - Tag), len(fields) - 28/ That we need add 2 empty fields
+			// example: FN - 31(1 - Tag), len(fields) - 28. That we need add 2 empty fields
 		case "autofill":
 			diff := (c.Input.TagsInfo.Tags[tag].FieldsNumber - 1) - len(fields)
 			for i := 0; i < diff; i++ {
@@ -122,12 +139,14 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 			}
 
 		default:
-			panic(fmt.Sprintf(ErrUndefinedOption, option, tag))
+			return tag, newFields, NewErrUndefinedOption(option, tag)
 		}
 	}
 
-	return tag, newFields
+	return tag, newFields, nil
 }
+
+/*_______________________________________[PARSE MSG, ]_______________________________________*/
 
 // Convert
 func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
@@ -156,7 +175,7 @@ func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
 		OutputTags = append(OutputTags, c.Output.TagsInfo.Positions[strconv.Itoa(key)])
 	}
 
-	// _________set output count of tags  
+	// _________set output count of tags
 	for _, outputTag := range OutputTags {
 		tag := c.Output.TagsInfo.Tags[outputTag] 
 
@@ -170,45 +189,44 @@ func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
 	}
 	
 	// _________get result
-	var result = &Result{}
-	rows, err := c.convert(OutputTags)
+	rows, err := c.convertWithPositions(OutputTags)
 	if err != nil {
 		return nil, err
 	}
-	result.LineSeparator = c.Output.LineSeparator
-	result.Rows = rows
+
+	result := NewResult(c.Output.LineSeparator, rows)
 
 	return result, err
 }
 
-func (c *Converter) convert(orderedTags []string) ([]*Row, error) {
+func (c *Converter) convertWithPositions(orderedTags []string) ([]*Row, error) {
 	rows := make([]*Row, 0, 1)
 	for _, tag := range orderedTags {
 		TagInfo, ok := c.Output.TagsInfo.Tags[tag]
 		if !ok {
-			return nil, fmt.Errorf(ErrUndefinedPositionTag, tag)
+			return nil, NewErrUndefinedPositionTag(tag)
 		}
 
 		for i := 0; i < TagInfo.Count; i++ {
 			PointerIndx = i
 
-			var result = &Row{}
 			row, err := c.convertTag(tag, &TagInfo)
 			if err != nil {
 				return nil, err
 			}
-
-			result.FieldSeparator = c.Output.FieldSeparator
-			result.Fields = row
+			
+			result := NewRow(c.Output.FieldSeparator, row)
 
 			rows = append(rows, result)
 		}
 
-		c.ResetParams() // clear pointer indx for next tag
+		c.ResetPointerIndx() // clear pointer indx for next tag
 	}
 
 	return rows, nil
 }
+
+/*_______________________________________[CONVERT SPECIFIED TAG]_______________________________________*/
 
 // convertTag
 func (c *Converter) convertTag(TagName string, TagInfo *Tag) ([]*Field, error) {
@@ -286,7 +304,7 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 
 
 		default:
-			return nil, fmt.Errorf(ErrWrongParamCount, fieldValue, OR)
+			return nil, NewErrWrongParamCount(fieldValue, OR)
 		}
 	}
 
@@ -341,7 +359,7 @@ func (c *Converter) getFieldValue(mask []int, str string) (string, error) {
 			}
 
 			if link == "" {
-				return "", fmt.Errorf(ErrInvalidLink, str)
+				return "", NewErrInvalidLink(str)
 			} 
 
 			value, err := c.getValueFromMSGbyLink(link)
@@ -359,7 +377,7 @@ func (c *Converter) getFieldValue(mask []int, str string) (string, error) {
 // getDefaultFieldValue
 func (c *Converter) getDefaultFieldValue(str string) (string, error) {
 	if str == "" {
-		return "", fmt.Errorf(ErrEmptyDefaultValue, str)
+		return "", NewErrEmptyDefaultValue(str)
 	}
 
 	return str, nil
@@ -370,21 +388,21 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 	
 	elems := strings.Split(link, linkToField) // parse: Tag - Position
 	if len(elems) != 2 {
-		return "", fmt.Errorf(ErrInvalidLink, link)
+		return "", NewErrInvalidLink(link)
 	}
 
 	matchingTag, pos := elems[0], elems[1]
 	if matchingTag == "" || pos == "" {
-		return "", fmt.Errorf(ErrInvalidLinkElems, link)
+		return "", NewErrInvalidLinkElems(link)
 	}
 
 	inTagInfo, ok := c.MsgSource.Tags[TagName(matchingTag)]
 	if !ok {
-		return "", fmt.Errorf(ErrUndefinedInputTag, matchingTag, link)
+		return "", NewErrUndefinedInputTag(matchingTag, link)
 	}
 
 	if PointerIndx > (len(inTagInfo) - 1) {// countOfInputSameTagRows
-		return "", fmt.Errorf(ErrTooBigIndex, PointerIndx, len(inTagInfo) - 1)
+		return "", NewErrTooBigIndex(PointerIndx, len(inTagInfo) - 1)
 	}
 
 	position, err := strconv.ParseFloat(pos, 64)

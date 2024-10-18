@@ -74,21 +74,21 @@ type ConverterParams struct {
 
 func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
 	if !strings.Contains(cfgPath, ".json") {
-		return nil, fmt.Errorf(ErrInvalidJsonExtension, cfgPath)
+		return nil, NewErrInvalidJsonExtension(cfgPath)
 	}
 
 	inputModification, err := ReadJSONConfigBlock(cfgPath, cfgInBlockName)
 	if err != nil {
 		return nil, err
 	} else if inputModification == nil {
-		return nil, fmt.Errorf(ErrNilModification, cfgInBlockName, cfgPath)
+		return nil, NewErrNilModification(cfgInBlockName, cfgPath)
 	}
 
 	outputModification, err := ReadJSONConfigBlock(cfgPath, cfgOutBlockName)
 	if err != nil {
 		return nil, err
 	} else if outputModification == nil {
-		return nil, fmt.Errorf(ErrNilModification, cfgOutBlockName, cfgPath)
+		return nil, NewErrNilModification(cfgOutBlockName, cfgPath)
 	}
 
 	splitByLine := GetCustomSplit(inputModification.LineSeparator)
