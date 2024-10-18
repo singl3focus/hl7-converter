@@ -60,10 +60,22 @@ jobs:
           MINOR=${version_parts[1]}
           PATCH=${version_parts[2]}
 
-          git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "major" && (MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0)
-          git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "feat" && (MINOR=$((MINOR + 1)); PATCH=0)
-          git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "fix" && (PATCH=$((PATCH + 1)))
+          if git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "major"; then
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+          fi
 
+          if git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "feat"; then
+              MINOR=$((MINOR + 1))
+              PATCH=0
+          fi
+
+          if git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "fix"; then
+              PATCH=$((PATCH + 1))
+          fi
+
+          echo "MAJOR=$MAJOR, MINOR=$MINOR, PATCH=$PATCH"  # Для отладки
           echo "NEW_TAG=v$MAJOR.$MINOR.$PATCH" >> $GITHUB_ENV
 
       - name: Create tag
