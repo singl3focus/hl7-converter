@@ -9,9 +9,6 @@ import (
 	"strings"
 )
 
-type BaseConverter struct {
-
-}
 
 // IndetifyMsg
 // 
@@ -63,7 +60,7 @@ func ConvertToMSG(p ConverterParams , fullMsg []byte) (*Msg, error) {
 
 		tag, fields := rowFields[0], rowFields[1:]
 		if _, ok := p.InMod.TagsInfo.Tags[tag]; !ok {
-			return nil, fmt.Errorf(ErrUndefinedInputTag, tag, "ConvertToMSG func")
+			return nil, NewErrUndefinedInputTag(tag, "ConvertToMSG func")
 		}
 
 		processedTag, processedFields := TagName(tag), TagFields(fields)

@@ -5,9 +5,10 @@ package hl7converter
 */
 
 type Modification struct {
-	ComponentSeparator string `json:"component_separator"`
-	FieldSeparator     string `json:"field_separator"`
-	LineSeparator      string `json:"line_separator"`
+	ComponentSeparator    string `json:"component_separator"`
+	ComponentArrSeparator string `json:"component_array_separator"`
+	FieldSeparator        string `json:"field_separator"`
+	LineSeparator         string `json:"line_separator"`
 
 	Types map[string][][]string `json:"types,omitempty"` // [OPTIONAL]
 

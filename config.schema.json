@@ -12,6 +12,9 @@
             "component_separator" : {
                 "type": "string"
             },
+            "component_array_separator" : {
+                "type": "string"
+            },
             "field_separator": {
                 "type": "string"
             },
@@ -86,7 +89,7 @@
             }  
         },
     
-        "required": ["component_separator", "field_separator", "line_separator", "tags_info"]
+        "required": ["component_separator", "field_separator", "line_separator", "component_array_separator", "tags_info"]
     }    
 }
 

@@ -1,9 +1,12 @@
 package hl7converter
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 /*
-	APPLICATION
+APPLICATION
 */
 const (
 	CfgJSON       = "config.json"
@@ -21,7 +24,7 @@ const ( // [SPECIAL CONVERTER SYMBOLS]
 	linkElemEnd = ">"
 	linkToField = "-"
 
-	OR  = "??"
+	OR = "??"
 
 	itSymbol = 1
 	itLink   = 0
@@ -29,54 +32,86 @@ const ( // [SPECIAL CONVERTER SYMBOLS]
 
 var (
 	mapOfOptions = map[string]string{
-		"autofill": "automaticly adding  empty fields by count of differents about fields_number and current_fields_number",
+		"autofill": "automaticly adding empty fields by count of differents about fields_number and current_fields_number",
 	}
-
-
-	_ = mapOfOptions
 )
 
 /*
 	ERRORS
 */
 
-var ( // [CONFIG ERRORS]
-	ErrModificationNotFound = errors.New("specified modification is not found in config")
-	ErrInvalidJSON          = errors.New("invalid JSON, specified modification is not 'map[string]any'")
-)
-
 var ( // [PARSING JSON CONFIG ERRORS]
-	ErrInvalidConfig        = errors.New("validate json has been unsuccessful")
-	ErrInvalidJsonExtension = "config (path=%s) doesn't contains extension 'json'"
-	ErrNilModification      = "modification (name=%s) was incorrectly read from the file (path=%s), it's empty"
+	ErrInvalidConfig = errors.New("validate json has been unsuccessful")
 )
 
+// ______________________________[CONFIG ERRORS]______________________________
 
-var ( // [CONVERTING ERRORS]
-	ErrInvalidParseMsg   = errors.New("parse input messsge to struct has been unsuccesful")
-	ErrOutputTagNotFound = errors.New("linked tags in tag not found in output modification")
-)
+func NewErrModificationNotFound(mdfname string) error {
+	return fmt.Errorf("specified modification (name=%s) is not found in config", mdfname)
+}
 
-const ( // [CONVERTING OPTIONS f-ERRORS]
-	ErrUndefinedOption = "undefined option (name=%s) by tag (name=%s)"
-)
+func NewErrInvalidJSON(mdf any) error {
+	return fmt.Errorf("invalid JSON, specified modification (value=%v) is not 'map[string]any'", mdf)
+}
 
-const ( // [CONVERTING f-ERRORS]
-	ErrUndefinedPositionTag = "tag (name=%s) has position, but it's not found in tags"
+func NewErrInvalidJsonExtension(path string) error {
+	return fmt.Errorf("config (path=%s) doesn't contains extension 'json'", path)
+}
 
-	ErrInvalidLink       = "invalid link (str=%s)"
-	ErrInvalidLinkElems  = "invalid link (str=%s), some elems empty"
-	ErrWrongParamCount   = "field (value=%s), you can use only one (param=%s)"
-	ErrEmptyDefaultValue = "field (value=%s) has empty default value"
+func NewErrNilModification(name, path string) error {
+	return fmt.Errorf("modification (name=%s) was incorrectly read from the file (path=%s), it's empty", name, path)
+}
 
-	ErrWrongTagRow         = "identify msg and split input msg has been unsuccessful (row=%s)"
-	ErrUndefinedInputTag   = "undefined input tag(name=%s), some info: %s"
-	ErrUndefinedOutputTag  = "undefined output tag (name=%s), some info: %s"
-	ErrTooBigIndex         = "index(number=%d) of output rows more than max index(number=%d) of input rows"
-	ErrWrongSliceOfTag     = "'slice of Tag' by tag %s is empty"
-	ErrInputTagMSGNotFound = "tag %s not found in search structure MSG %v"
+// ______________________________[CONVERTING ERRORS]______________________________
 
-	ErrWrongFieldsNumber  = "tag(name=%s, structure=%v) has invalid specified count of fields number, current fields number(%d)"
+func NewErrInvalidParseMsg(errMsg string) error {
+	return fmt.Errorf("parse input messsge to struct has been unsuccesful (error=%s)", errMsg)
+}
+
+func NewErrInputTagNotFound(row string) error {
+	return fmt.Errorf("input tag not found (row=%s)", row)
+}
+
+func NewErrOutputTagNotFound(tagname string) error {
+	return fmt.Errorf("linked tags in tag (name=%s) not found in output modification", tagname)
+}
+
+func NewErrUndefinedOption(optionname, tagname string) error {
+	return fmt.Errorf("undefined option (name=%s) by tag (name=%s); avaliable: %+v", optionname, tagname, mapOfOptions)
+}
+
+func NewErrUndefinedPositionTag(tagname string) error {
+	return fmt.Errorf("tag (name=%s) has position, but it's not found in tags", tagname)
+}
+
+func NewErrInvalidLink(link string) error {
+	return fmt.Errorf("invalid link (str=%s)", link)
+}
+
+func NewErrInvalidLinkElems(link string) error {
+	return fmt.Errorf("invalid link (str=%s), some elems empty", link)
+}
+
+func NewErrWrongParamCount(fv, p string) error {
+	return fmt.Errorf("field (value=%s), you can use only one special symbol (param=%s)", fv, p)
+}
+
+func NewErrEmptyDefaultValue(fv string) error {
+	return fmt.Errorf("field (value=%s) has empty default value", fv)
+}
+
+
+func NewErrUndefinedInputTag(tagname, someinfo string) error {
+	return fmt.Errorf("undefined input tag (name=%s), some info: %s", tagname, someinfo)
+}
+
+func NewErrTooBigIndex(indx, maxIndx int) error {
+	return fmt.Errorf("index (number=%d) of output rows more than max index (number=%d) of input rows", indx, maxIndx)
+}
+
+
+const (
+	ErrWrongFieldsNumber  = "tag (name=%s, structure=%v) has invalid specified count of fields number, current fields has (number=%d)"
 	ErrWrongFieldPosition = "wrong position (position must be more than 1) by fieldName %s in %+v"
 	ErrWrongFieldLink     = "specified field link is incorrect, field %s"
 	ErrWrongFieldMetadata = "fieldName %s in output modification %v hasn't have a linked_fields/default_value is not specified/input_field not found in linked_fields"
@@ -84,17 +119,16 @@ const ( // [CONVERTING f-ERRORS]
 	ErrWrongComponentsNumber = "component not found (line=%s), but link (value=%s) is exist"
 	ErrWrongComponentLink    = "link (value=%s) component position (value=%d) more than max components count (number=%d) of input row with tag (name=%s)"
 
-	ErrNegativeComponentsNumber = "commponent count can be equal to 0 or more than 1. FieldName %s"
-	ErrWrongComponentSplit      = "incorrect field %s, the field component could not be pulled out"
+	ErrNegativeComponentsNumber = "commponent count can be equal to 0 or more than 1, field (name=%s)"
+	ErrWrongComponentSplit      = "incorrect field (value=%s), the component could not be pulled out"
 
-	ErrManyMultiTags = "converter can working with one multi tag not more, wait: %s, receive: %s"
+	ErrManyMultiTags = "converter can working with one multi tag not more(wait: %s, receive: %s)"
 )
 
 
-/*
-	Main Model Errors
-*/
+// ______________________________[Main Model Errors]______________________________
 
-var (
-	ErrIndexOutOfRange = ("Index(value=%d) out of range")
-)
+
+func NewErrIndexOutOfRange(idx, max uint, elemname string) error {
+	return fmt.Errorf("index (value=%d) out of range, max (value=%d), elem (name=%s)", idx, max, elemname)
+}

@@ -1,6 +1,7 @@
 {
     "astm_hbl": {
         "component_separator": "^",
+        "component_array_separator": "",
         "field_separator": "|",
         "line_separator": "\n",
 
@@ -49,6 +50,7 @@
 
     "mindray_hbl" : {
         "component_separator": "^",
+        "component_array_separator": "",
         "field_separator": "|",
         "line_separator": "\r",
 
@@ -99,9 +101,6 @@
         },
 
         "tags_info": {
-            "positions": {
-                "1": "H"
-            },
             "tags" : {
                 "H": {
                     "linked": "MSH",
@@ -122,9 +121,6 @@
         },
 
         "tags_info": {
-            "positions": {
-                "1": "MSH"
-            },
             "tags" : {
                 "MSH": {
                     "linked": "H",

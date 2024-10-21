@@ -1,7 +1,5 @@
 package hl7converter
 
-import "fmt"
-
 /*
 	For working with output message
 */
@@ -10,6 +8,13 @@ type Result struct {
 	LineSeparator string
 
 	Rows []*Row
+}
+
+func NewResult(ls string, rws []*Row) *Result {
+	return &Result{
+		LineSeparator: ls,
+		Rows: rws,
+	}
 }
 
 func (r *Result) AssembleMessage() string {
@@ -32,11 +37,11 @@ func (r *Result) checkRange(i uint) bool {
 
 func (r *Result) SwapRows(p1, p2 uint) error {
 	if !r.checkRange(p1) {
-		return fmt.Errorf(ErrIndexOutOfRange, p1)
+		return NewErrIndexOutOfRange(p1, uint(len(r.Rows)), "rows")
 	}
 
 	if !r.checkRange(p2) {
-		return fmt.Errorf(ErrIndexOutOfRange, p2)
+		return NewErrIndexOutOfRange(p2, uint(len(r.Rows)), "rows")
 	}
 
 	temp := r.Rows[p1]
@@ -52,6 +57,13 @@ type Row struct {
 	FieldSeparator string
 
 	Fields []*Field
+}
+
+func NewRow(fs string, fds []*Field) *Row {
+	return &Row{
+		FieldSeparator: fs,
+		Fields: fds,
+	}
 }
 
 func (r *Row) AssembleRow() string {
@@ -83,11 +95,11 @@ func (r *Row) checkRange(i uint) bool {
 
 func (r *Row) SwapFields(p1, p2 uint) error {
 	if !r.checkRange(p1) {
-		return fmt.Errorf(ErrIndexOutOfRange, p1)
+		return NewErrIndexOutOfRange(p1, uint(len(r.Fields)), "fields")
 	}
 
 	if !r.checkRange(p2) {
-		return fmt.Errorf(ErrIndexOutOfRange, p2)
+		return NewErrIndexOutOfRange(p2, uint(len(r.Fields)), "fields")
 	}
 
 	temp := r.Fields[p1]
@@ -99,11 +111,11 @@ func (r *Row) SwapFields(p1, p2 uint) error {
 
 func (r *Row) ChangeFieldPosition(oldp, newp uint) error {
 	if !r.checkRange(oldp) {
-		return fmt.Errorf(ErrIndexOutOfRange, oldp)
+		return NewErrIndexOutOfRange(oldp, uint(len(r.Fields)), "fields")
 	}
 
 	if !r.checkRange(newp) {
-		return fmt.Errorf(ErrIndexOutOfRange, newp)
+		return NewErrIndexOutOfRange(newp, uint(len(r.Fields)), "fields")
 	}
 
 	r.Fields[newp] = r.Fields[oldp]
@@ -115,7 +127,15 @@ func (r *Row) ChangeFieldPosition(oldp, newp uint) error {
 /*__________________________*/
 
 type Field struct {
-	Value string
+	Value      string
+	Components string
+	Array      []*Field
+}
+
+func NewField(value string) *Field {
+	return &Field{
+		Value: value,
+	}
 }
 
 func (f *Field) ChangeValue(nv string) {

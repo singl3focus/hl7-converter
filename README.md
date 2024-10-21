@@ -78,21 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	/* YOU CAN ASSEMBLY MESSAGE OR CHANGE ANY FIELD JUST WITH INDEX*/
-	
-	// example of assemle message
-	res := make([]byte, 0, 1024)
-	for i, rowFields := range ready {
-		readyRow := strings.Join(rowFields, "|")
-
-		log.Logf("%d row: %v\n", i+1, readyRow)
-		res = append(res, []byte(readyRow)...)
-
-		if i < (len(ready) - 1) {
-			res = append(res, []byte("\r")...)
-		}
-	}
-	
+	res := ready.AssembleMessage()
 	log.Println("Final result: ", string(res))
 }
 ```
@@ -103,7 +89,9 @@ func main() {
 
 ### Advices
 1) **When you are filling any modification that you should be guided by the fact that this Transformation will occur based on the output modification, and not the input one.**
-2) ! **Now converter works by principle of create output rows based on Output Modification, it's means that you always can get rows according to the templates specified in Output Modification** !
+2) **Now converter works by 2 principle:** 
+	- Principle of create output rows based on *Input Message*, it's means that every output tag will be choose according inputModification.TagsInfo.Tag[InputTag].Linked
+	- Principle of create output rows based on *Output Modification*, it's means that you always can get rows according to the templates specified in Output Modification
 
 ### Rules
 - **See examples and fill it out like**
