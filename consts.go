@@ -32,10 +32,8 @@ const ( // [SPECIAL CONVERTER SYMBOLS]
 
 var (
 	mapOfOptions = map[string]string{
-		"autofill": "automaticly adding  empty fields by count of differents about fields_number and current_fields_number",
+		"autofill": "automaticly adding empty fields by count of differents about fields_number and current_fields_number",
 	}
-
-	_ = mapOfOptions
 )
 
 /*
@@ -70,12 +68,16 @@ func NewErrInvalidParseMsg(errMsg string) error {
 	return fmt.Errorf("parse input messsge to struct has been unsuccesful (error=%s)", errMsg)
 }
 
-// func NewErrOutputTagNotFound(tagname string) error {
-// 	return fmt.Errorf("linked tags in tag (name=%s) not found in output modification", tagname)
-// }
+func NewErrInputTagNotFound(row string) error {
+	return fmt.Errorf("input tag not found (row=%s)", row)
+}
+
+func NewErrOutputTagNotFound(tagname string) error {
+	return fmt.Errorf("linked tags in tag (name=%s) not found in output modification", tagname)
+}
 
 func NewErrUndefinedOption(optionname, tagname string) error {
-	return fmt.Errorf("undefined option (name=%s) by tag (name=%s)", optionname, tagname)
+	return fmt.Errorf("undefined option (name=%s) by tag (name=%s); avaliable: %+v", optionname, tagname, mapOfOptions)
 }
 
 func NewErrUndefinedPositionTag(tagname string) error {
@@ -98,27 +100,15 @@ func NewErrEmptyDefaultValue(fv string) error {
 	return fmt.Errorf("field (value=%s) has empty default value", fv)
 }
 
-// func NewErrWrongTagRow(row string) error {
-// 	return fmt.Errorf("identify msg and split input msg has been unsuccessful (row=%s)", row)
-// }
 
 func NewErrUndefinedInputTag(tagname, someinfo string) error {
 	return fmt.Errorf("undefined input tag (name=%s), some info: %s", tagname, someinfo)
 }
 
-// func NewErrUndefinedOutputTag(tagname, someinfo string) error {
-// 	return fmt.Errorf("undefined output tag (name=%s), some info: %s", tagname, someinfo)
-// }
-
 func NewErrTooBigIndex(indx, maxIndx int) error {
 	return fmt.Errorf("index (number=%d) of output rows more than max index (number=%d) of input rows", indx, maxIndx)
 }
 
-// func NewErrEmptySliceOfTag(tagname string) error {
-// 	return fmt.Errorf("'slice of Tag by tag (name=%s) is empty", tagname)
-// }
-
-// ErrInputTagMSGNotFound = "tag (name=%s) not found in search structure MSG (structure=%v)"
 
 const (
 	ErrWrongFieldsNumber  = "tag (name=%s, structure=%v) has invalid specified count of fields number, current fields has (number=%d)"

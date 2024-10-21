@@ -1,11 +1,11 @@
 package hl7converter
 
 import (
+	"fmt"
+	"sort"
+	"math"
 	"bufio"
 	"bytes"
-	"fmt"
-	"math"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -36,15 +36,13 @@ func WithUsingPositions() OptionFunc {
 }
 
 func NewConverter(in, out *Modification, opts ...OptionFunc) (*Converter, error) {
-	msg := &Msg{
-		Tags: make(map[TagName]SliceFields),
-	}
-
 	converter := &Converter{
 		Input:  in,
 		Output: out,
 		LineSplit: GetCustomSplit(in.LineSeparator),
-		MsgSource: msg,
+		MsgSource: &Msg{
+			Tags: make(map[TagName]SliceFields),
+		},
 	}
 
 	for _, opt := range opts {
@@ -126,7 +124,7 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
 func (c *Converter) handleOptions(tag string, fields []string) (string, []string, error) {
 	options := c.Input.TagsInfo.Tags[tag].Options
 
-	newFields := make([]string, 0, len(fields))
+	newFields := make([]string, len(fields))
 	copy(newFields, fields)
 
 	for _, option := range options {
@@ -146,11 +144,10 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 	return tag, newFields, nil
 }
 
-/*_______________________________________[PARSE MSG, ]_______________________________________*/
+/*_______________________________________[GENERAL CONVERT]_______________________________________*/
 
 // Convert
 func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
-
 	// _________fill MsgSource in Converter structure
 	tags, err := c.ParseMsg(fullMsg)
 	if err != nil {
@@ -158,7 +155,79 @@ func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
 	}
 	c.MsgSource.Tags = tags
 
+	var result *Result
+	if c.UsingPositions {
+		result, err = c.convertWithPositions()
+	} else {
+		result, err = c.convertByInput(fullMsg)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, err
+}
+
+func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
+	tagPointerPositions := make(map[string]int) // Tag - Position
 	
+	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
+	scanner.Split(c.LineSplit)
+
+
+    rows := make([]*Row, 0, 1)
+	for scanner.Scan() {
+		inputRow := scanner.Text()
+		
+		var inputTag string
+		for i, ch := range inputRow {
+			if string(ch) == c.Input.FieldSeparator {
+				inputTag = inputRow[:i]
+				if inputTag == "" {
+					return nil, NewErrInputTagNotFound(inputRow)
+				}
+				break
+			}
+		}
+
+		if _, exist := c.Input.TagsInfo.Tags[inputTag]; !exist {
+			return nil, NewErrUndefinedInputTag(inputTag, "not found in input modification")
+		}
+
+		outputTag := c.Input.TagsInfo.Tags[inputTag].Linked
+		outputTagInfo, exist := c.Output.TagsInfo.Tags[outputTag]
+		if !exist {
+			return nil, NewErrOutputTagNotFound(inputTag)
+		}
+
+		if _, ok := tagPointerPositions[inputTag]; !ok {
+			tagPointerPositions[inputTag] = 0 // start index
+		} else {
+			tagPointerPositions[inputTag]++
+		}
+		PointerIndx = tagPointerPositions[inputTag] // DANGER: [TENDER SPOT]
+
+		row, err := c.convertTag(outputTag, &outputTagInfo)
+		if err != nil {
+			return nil, err
+		}
+
+		newRow := NewRow(c.Output.FieldSeparator, row)
+		rows = append(rows, newRow)
+	}
+	
+	c.ResetPointerIndx()
+
+
+	result := NewResult(c.Output.LineSeparator, rows)
+	return result, nil
+}
+
+// convertWithPositions
+//
+// - Using tag.Count for change PointerIndx
+// - Tags positons are static and are set in the configuration.
+func (c *Converter) convertWithPositions() (*Result, error) {
 	// _________prepare 'Ordered Slice of Tags' for convert
 	tempNumbers := make([]int, 0, 1)
 	for key, _ := range c.Output.TagsInfo.Positions {
@@ -170,16 +239,16 @@ func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
 	}
 	sort.Ints(tempNumbers)
 
-	OutputTags := make([]string, 0, len(tempNumbers))
+	orderedTags := make([]string, 0, len(tempNumbers))
 	for _, key := range tempNumbers {
-		OutputTags = append(OutputTags, c.Output.TagsInfo.Positions[strconv.Itoa(key)])
+		orderedTags = append(orderedTags, c.Output.TagsInfo.Positions[strconv.Itoa(key)])
 	}
 
 	// _________set output count of tags
-	for _, outputTag := range OutputTags {
+	for _, outputTag := range orderedTags {
 		tag := c.Output.TagsInfo.Tags[outputTag] 
 
-		if s, ok := tags[TagName(c.Output.TagsInfo.Tags[outputTag].Linked)]; !ok {
+		if s, ok := c.MsgSource.Tags[TagName(c.Output.TagsInfo.Tags[outputTag].Linked)]; !ok {
 			tag.Count = 1
 		} else {
 			tag.Count = len(s)
@@ -189,17 +258,6 @@ func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
 	}
 	
 	// _________get result
-	rows, err := c.convertWithPositions(OutputTags)
-	if err != nil {
-		return nil, err
-	}
-
-	result := NewResult(c.Output.LineSeparator, rows)
-
-	return result, err
-}
-
-func (c *Converter) convertWithPositions(orderedTags []string) ([]*Row, error) {
 	rows := make([]*Row, 0, 1)
 	for _, tag := range orderedTags {
 		TagInfo, ok := c.Output.TagsInfo.Tags[tag]
@@ -208,38 +266,38 @@ func (c *Converter) convertWithPositions(orderedTags []string) ([]*Row, error) {
 		}
 
 		for i := 0; i < TagInfo.Count; i++ {
-			PointerIndx = i
+			PointerIndx = i // DANGER: [TENDER SPOT]
 
 			row, err := c.convertTag(tag, &TagInfo)
 			if err != nil {
 				return nil, err
 			}
 			
-			result := NewRow(c.Output.FieldSeparator, row)
-
-			rows = append(rows, result)
+			newRow := NewRow(c.Output.FieldSeparator, row)
+			rows = append(rows, newRow)
 		}
 
 		c.ResetPointerIndx() // clear pointer indx for next tag
 	}
 
-	return rows, nil
+	result := NewResult(c.Output.LineSeparator, rows)
+	return result, nil
 }
 
 /*_______________________________________[CONVERT SPECIFIED TAG]_______________________________________*/
 
 // convertTag
-func (c *Converter) convertTag(TagName string, TagInfo *Tag) ([]*Field, error) {
-	row := strings.Split(TagInfo.Tempalate, c.Output.FieldSeparator) // REPEAT BLOCK OF SPLITS
+func (c *Converter) convertTag(outputTagName string, outputTagInfo *Tag) ([]*Field, error) {
+	row := strings.Split(outputTagInfo.Tempalate, c.Output.FieldSeparator) // REPEAT BLOCK OF SPLITS
 
-	if TagInfo.FieldsNumber != ignoredFieldsNumber {
-		if len(row) != TagInfo.FieldsNumber || TagInfo.FieldsNumber < 1 {
+	if outputTagInfo.FieldsNumber != ignoredFieldsNumber {
+		if len(row) != outputTagInfo.FieldsNumber || outputTagInfo.FieldsNumber < 1 {
 			return nil,
-				fmt.Errorf(ErrWrongFieldsNumber, TagName, TagInfo, len(row))
+				fmt.Errorf(ErrWrongFieldsNumber, outputTagName, outputTagInfo, len(row))
 		}
 	}
 
-	outputLine, err := c.assembleOutRow(TagInfo, row)
+	outputLine, err := c.assembleOutRow(outputTagInfo, row)
 	if err != nil {
 		return nil, err
 	}

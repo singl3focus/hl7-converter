@@ -101,9 +101,6 @@
         },
 
         "tags_info": {
-            "positions": {
-                "1": "H"
-            },
             "tags" : {
                 "H": {
                     "linked": "MSH",
@@ -124,9 +121,6 @@
         },
 
         "tags_info": {
-            "positions": {
-                "1": "MSH"
-            },
             "tags" : {
                 "MSH": {
                     "linked": "H",
