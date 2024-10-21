@@ -1,5 +1,7 @@
 package hl7converter
 
+import "strings"
+
 /*
 	For working with output message
 */
@@ -120,7 +122,7 @@ func (r *Row) ChangeFieldPosition(oldp, newp uint) error {
 
 	r.Fields[newp] = r.Fields[oldp]
 	r.Fields[oldp] = &Field{}
-
+ 
 	return nil
 }
 
@@ -128,13 +130,35 @@ func (r *Row) ChangeFieldPosition(oldp, newp uint) error {
 
 type Field struct {
 	Value      string
-	Components string
+	Components []string
 	Array      []*Field
 }
 
-func NewField(value string) *Field {
+func NewField(value, componentSeparator, componentArraySeparator string) *Field {
+	field := &Field{
+		Value: value,
+		Components: strings.Split(
+			strings.ReplaceAll(value, componentArraySeparator, componentSeparator),
+			componentSeparator,
+		),
+	}
+
+	fieldArrElem := strings.Split(value, componentArraySeparator)
+	fieldArr := make([]*Field, 0, 1)
+	if len(fieldArrElem) > 1 {
+		for _, v := range fieldArrElem {
+			fieldArr = append(fieldArr, newArrayField(v, componentSeparator))
+		}
+	}
+	field.Array = fieldArr
+
+	return field
+}
+
+func newArrayField(value, componentSeparator string) *Field {
 	return &Field{
 		Value: value,
+		Components: strings.Split(value, componentSeparator),
 	}
 }
 

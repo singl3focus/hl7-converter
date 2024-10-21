@@ -337,7 +337,7 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 				return nil, err
 			}
 
-			tempLine[fieldPosition].Value = value
+			tempLine[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
 		case 2: // MUST BE TEMPLATE OR DEFAULT_VALUE
 			if fieldBlocks[0] != "" {
 				mask, err := c.TempalateParse(fieldBlocks[0])
@@ -350,14 +350,14 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 					return nil, err
 				}
 
-				tempLine[fieldPosition].Value = value
+				tempLine[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
 			} else {
 				value, err := c.getDefaultFieldValue(fieldBlocks[1])
 				if err != nil {
 					return nil, err
 				}
 
-				tempLine[fieldPosition].Value = value
+				tempLine[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
 			}
 
 
