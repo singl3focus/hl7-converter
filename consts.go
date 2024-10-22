@@ -6,20 +6,21 @@ import (
 )
 
 /*
-APPLICATION
+					APPLICATION
 */
 const (
 	CfgJSON       = "config.json"
 	CfgJSONSchema = "config.schema.json"
 )
 
-const ( // [CONVERTING PARAMS]
-	ignoredIndx = 0
+/*___________________________[CONVERTING PARAMS]___________________________*/
 
+const ( 
+	ignoredIndx = 0
 	ignoredFieldsNumber = -1
 )
 
-const ( // [SPECIAL CONVERTER SYMBOLS]
+const (
 	linkElemSt  = "<"
 	linkElemEnd = ">"
 	linkToField = "-"
@@ -37,7 +38,7 @@ var (
 )
 
 /*
-	ERRORS
+						ERRORS
 */
 
 var ( // [PARSING JSON CONFIG ERRORS]
@@ -100,7 +101,6 @@ func NewErrEmptyDefaultValue(fv string) error {
 	return fmt.Errorf("field (value=%s) has empty default value", fv)
 }
 
-
 func NewErrUndefinedInputTag(tagname, someinfo string) error {
 	return fmt.Errorf("undefined input tag (name=%s), some info: %s", tagname, someinfo)
 }
@@ -109,21 +109,42 @@ func NewErrTooBigIndex(indx, maxIndx int) error {
 	return fmt.Errorf("index (number=%d) of output rows more than max index (number=%d) of input rows", indx, maxIndx)
 }
 
+func NewErrWrongFieldsNumber(tagname string, tagstruct *Tag, currfieldsnumb int) error {
+	return fmt.Errorf("tag (name=%s, structure=%v) has invalid specified count of fields number, current fields has (number=%d)",
+						tagname, tagstruct, currfieldsnumb)
+}
 
-const (
-	ErrWrongFieldsNumber  = "tag (name=%s, structure=%v) has invalid specified count of fields number, current fields has (number=%d)"
-	ErrWrongFieldPosition = "wrong position (position must be more than 1) by fieldName %s in %+v"
-	ErrWrongFieldLink     = "specified field link is incorrect, field %s"
-	ErrWrongFieldMetadata = "fieldName %s in output modification %v hasn't have a linked_fields/default_value is not specified/input_field not found in linked_fields"
+// func NewErrWrongFieldPosition(fieldname string) error {
+// 	return fmt.Errorf("wrong position (position must be more than 1) by fieldName %s in %+v", )
+// }
 
-	ErrWrongComponentsNumber = "component not found (line=%s), but link (value=%s) is exist"
-	ErrWrongComponentLink    = "link (value=%s) component position (value=%d) more than max components count (number=%d) of input row with tag (name=%s)"
+// func NewErrWrongFieldLink(fieldvalue string) error {
+// 	return fmt.Errorf("specified field link is incorrect, field %s", fieldvalue)
+// }
 
-	ErrNegativeComponentsNumber = "commponent count can be equal to 0 or more than 1, field (name=%s)"
-	ErrWrongComponentSplit      = "incorrect field (value=%s), the component could not be pulled out"
+// func NewErrWrongFieldMetadata(fieldname string, outputmod *Modification) error {
+// 	return fmt.Errorf("fieldName %s in output modification %v hasn't have a linked_fields/default_value is not specified/input_field not found in linked_fields",
+// 						fieldname, outputmod)
+// }
 
-	ErrManyMultiTags = "converter can working with one multi tag not more(wait: %s, receive: %s)"
-)
+func NewErrWrongComponentsNumber(inputdata, link string) error {
+	return	fmt.Errorf("component not found (line=%s), but link (value=%s) is exist", inputdata, link)
+}
+
+
+func NewErrWrongComponentLink(link string, componentpos, componentcnt int, inputtag string) error {
+	return fmt.Errorf("link (value=%s) component position (value=%d) more than max components count (number=%d) of input row with tag (name=%s)",
+						link, componentpos, componentcnt, inputtag)
+}
+
+// func New() error {
+// 	return fmt.Errorf()
+// }
+
+// ErrNegativeComponentsNumber = "commponent count can be equal to 0 or more than 1, field (name=%s)"
+// ErrWrongComponentSplit      = "incorrect field (value=%s), the component could not be pulled out"
+// ErrManyMultiTags = "converter can working with one multi tag not more(wait: %s, receive: %s)"
+
 
 
 // ______________________________[Main Model Errors]______________________________

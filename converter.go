@@ -1,7 +1,6 @@
 package hl7converter
 
 import (
-	"fmt"
 	"sort"
 	"math"
 	"bufio"
@@ -14,7 +13,7 @@ type Converter struct {
 	/*
 		Data parsed from config.
 		Goal: find metadata(position, default_value, components_number, linked and data about Tags, Separators)
-		about field so that then get value some field.
+			about field so that then get value some field.
 	*/
 	Input, Output *Modification
 
@@ -288,12 +287,12 @@ func (c *Converter) convertWithPositions() (*Result, error) {
 
 // convertTag
 func (c *Converter) convertTag(outputTagName string, outputTagInfo *Tag) ([]*Field, error) {
-	row := strings.Split(outputTagInfo.Tempalate, c.Output.FieldSeparator) // REPEAT BLOCK OF SPLITS
+	row := strings.Split(outputTagInfo.Tempalate, c.Output.FieldSeparator)
 
 	if outputTagInfo.FieldsNumber != ignoredFieldsNumber {
 		if len(row) != outputTagInfo.FieldsNumber || outputTagInfo.FieldsNumber < 1 {
 			return nil,
-				fmt.Errorf(ErrWrongFieldsNumber, outputTagName, outputTagInfo, len(row))
+				NewErrWrongFieldsNumber(outputTagName, outputTagInfo, len(row))
 		}
 	}
 
@@ -313,7 +312,7 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
     }
 
 	
-	tempLine[0].Value = rowData[ignoredIndx] // first position is always placed by Tag
+	tempLine[0] = NewField(rowData[ignoredIndx], c.Output.ComponentSeparator, c.Output.ComponentArrSeparator) // first position is always placed by Tag
 
 	// [DEV] - fieldPosition started from '0' not from 'ignoredIndx+1'
 	for fieldPosition, fieldValue := range rowData[ignoredIndx+1:] {
@@ -359,7 +358,6 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 
 				tempLine[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
 			}
-
 
 		default:
 			return nil, NewErrWrongParamCount(fieldValue, OR)
@@ -480,11 +478,11 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 
 		components := strings.Split(fieldValue, c.Input.ComponentSeparator)
 		if len(components) == 1 {
-			return "", fmt.Errorf(ErrWrongComponentsNumber, fieldValue, link)
+			return "", NewErrWrongComponentsNumber(fieldValue, link)
 		}
 
 		if componentPosIndx > (len(components) - 1) {
-			return "", fmt.Errorf(ErrWrongComponentLink, link, componentPosIndx + 1, len(components), matchingTag)
+			return "", NewErrWrongComponentLink(link, componentPosIndx + 1, len(components), matchingTag)
 		}
 
 		value = components[componentPosIndx]

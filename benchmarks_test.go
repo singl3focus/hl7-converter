@@ -34,7 +34,7 @@ func BenchmarkConvertWithPositions(b *testing.B) {
 		}
 	}
 
-	b.Log(success, "TestConvertMsg right")
+	b.Log(success, "Test ConvertWithPositions right")
 }
 
 func BenchmarkConvertWithoutPositions(b *testing.B) {
@@ -43,8 +43,7 @@ func BenchmarkConvertWithoutPositions(b *testing.B) {
 			"P|1||||^||||||||||||||||||||||||||||\n" +
 			"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
 			"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
-			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
-			"L|1|N")
+			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||")
 	
 		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
 		
@@ -64,7 +63,7 @@ func BenchmarkConvertWithoutPositions(b *testing.B) {
 		}
 	}
 
-	b.Log(success, "TestConvertMsg right")
+	b.Log(success, "Test ConvertWithoutPositions right")
 }
 
 func BenchmarkReadJSONConfig(b *testing.B) {
