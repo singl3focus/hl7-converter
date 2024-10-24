@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	hl7converter "github.com/singl3focus/hl7-converter"
+	hl7converter "github.com/singl3focus/hl7-converter/v2"
 	"github.com/stretchr/testify/assert"
 )
 
