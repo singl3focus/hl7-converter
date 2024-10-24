@@ -1,8 +1,9 @@
-module github.com/singl3focus/hl7-converter
+module github.com/singl3focus/hl7-converter/v2
 
 go 1.22.3
 
 require (
+	github.com/singl3focus/hl7-converter v1.0.9
 	github.com/stretchr/testify v1.5.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 )
