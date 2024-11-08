@@ -1,4 +1,4 @@
-module github.com/singl3focus/hl7-converter/v2
+module github.com/singl3focus/hl7-converter
 
 go 1.20
 

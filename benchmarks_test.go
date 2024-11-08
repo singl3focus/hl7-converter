@@ -4,7 +4,7 @@ import (
 	"testing"
 	"path/filepath"
 
-    hl7converter "github.com/singl3focus/hl7-converter/v2"
+    hl7converter "github.com/singl3focus/hl7-converter"
 )
 
 func BenchmarkConvertWithPositions(b *testing.B) {
