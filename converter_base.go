@@ -1,23 +1,22 @@
 package hl7converter
 
 import (
-	"fmt"
-	"sort"
-	"bytes"
 	"bufio"
-	"slices"
+	"bytes"
+	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 )
 
-
 // IndetifyMsg
-// 
+//
 // _______[INFO]_______
-// - IndetifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg 
+// - IndetifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg
 //
 // -------[NOTES]-------
-// - ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ ( ДОБАВИТЬ АВТО СПЛИТ MSG? ) 
-// 
+// - ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ ( ДОБАВИТЬ АВТО СПЛИТ MSG? )
+//
 func indetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 	actualTags := make([]string, 0, len(msg.Tags))
 	for Tag := range msg.Tags {
@@ -29,7 +28,7 @@ func indetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 		for _, someTags := range Tags{
 			sort.Strings(someTags)
 	
-			if slices.Compare(actualTags, someTags) == 0 {
+			if reflect.DeepEqual(actualTags, someTags) {
 				return TypeName, true
 			}
 		}

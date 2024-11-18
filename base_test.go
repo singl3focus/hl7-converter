@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter"
@@ -278,7 +277,7 @@ func TestConverterTempalateParse(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			if slices.Compare(mask, tt.output) != 0 {
+			if !reflect.DeepEqual(mask, tt.output) {
 				t.Fatal("incorrect answer", "current output", mask, "wait output", tt.output)
 			}
 
