@@ -48,7 +48,7 @@ func indetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 // -------[NOTES]-------
 // - We can do without copying the structure MSG
 //
-func ConvertToMSG(p ConverterParams , fullMsg []byte) (*Msg, error) {
+func ConvertToMSG(p *ConverterParams , fullMsg []byte) (*Msg, error) {
 	tags := make(map[TagName]SliceFields)
 
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))

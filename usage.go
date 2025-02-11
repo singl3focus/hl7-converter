@@ -39,10 +39,8 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 	}, nil
 }
 
-
-
 // Convert
-func Convert(p *ConverterParams, msg []byte, cfgWithPositions bool) (*Result, *WrapperConverter, error) {
+func Convert(p *ConverterParams, msg []byte, cfgWithPositions bool) (*Result, error) {
 	var c *Converter
 	var err error
 
@@ -52,21 +50,19 @@ func Convert(p *ConverterParams, msg []byte, cfgWithPositions bool) (*Result, *W
 		c, err = NewConverter(p.InMod, p.OutMod)
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	res, err := c.Convert(msg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	wrapper := NewWrapperConverter(c)
 	
-	return res, wrapper, nil
+	return res, nil
 }
 
 // IndetifyMsg
-func IndetifyMsg(p ConverterParams, msg []byte) (string, error) {
+func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) {
 	MSG, err := ConvertToMSG(p, msg)
 	if err != nil {
 		return "", err

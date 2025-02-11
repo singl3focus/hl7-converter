@@ -1,10 +1,10 @@
 package hl7converter
 
 import (
-	"sort"
-	"math"
 	"bufio"
 	"bytes"
+	"math"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -128,7 +128,7 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 
 	for _, option := range options {
 		switch option {
-			// example: FN - 31(1 - Tag), len(fields) - 28. That we need add 2 empty fields
+		// example: FN - 31(1 - Tag), len(fields) - 28. That we need add 2 empty fields
 		case "autofill":
 			diff := (c.Input.TagsInfo.Tags[tag].FieldsNumber - 1) - len(fields)
 			for i := 0; i < diff; i++ {
@@ -146,15 +146,19 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 /*_______________________________________[GENERAL CONVERT]_______________________________________*/
 
 // Convert
-func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
-	// _________fill MsgSource in Converter structure
+func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
+	defer func() {
+        if r := recover(); r != nil {
+			err = NewFatalErrOfConverting(r)
+       }
+    }()
+
 	tags, err := c.ParseMsg(fullMsg)
 	if err != nil {
 		return nil, err
 	}
 	c.MsgSource.Tags = tags
 
-	var result *Result
 	if c.UsingPositions {
 		result, err = c.convertWithPositions()
 	} else {
@@ -216,7 +220,6 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 	}
 	
 	c.ResetPointerIndx()
-
 
 	result := NewResult(c.Output.LineSeparator, rows)
 	return result, nil

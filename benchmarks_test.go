@@ -28,7 +28,7 @@ func BenchmarkConvertWithPositions(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		_, _, err := hl7converter.Convert(convParams, inputMsgHBL, true)
+		_, err := hl7converter.Convert(convParams, inputMsgHBL, true)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -57,7 +57,7 @@ func BenchmarkConvertWithoutPositions(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		_, _, err := hl7converter.Convert(convParams, inputMsgHBL, false)
+		_, err := hl7converter.Convert(convParams, inputMsgHBL, false)
 		if err != nil {
 			b.Fatal(err)
 		}

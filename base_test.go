@@ -89,7 +89,7 @@ func TestConvertWithConverterRow(t *testing.T) {
 		t.Fatalf("------%s------", err.Error())
 	}
 
-	ready, _, err := hl7converter.Convert(convParams, inputMsgHBL, false)
+	ready, err := hl7converter.Convert(convParams, inputMsgHBL, false)
 	if err != nil {
 		t.Fatalf("------%s------", err.Error())
 	}
@@ -134,12 +134,12 @@ func TestConvertWithConverterMultiRows(t *testing.T) {
 		t.Fatalf("------%s------", err.Error())
 	}
 
-	msgType, err := hl7converter.IndetifyMsg(*convParams, inputMsgHBL)
+	msgType, err := hl7converter.IndetifyMsg(convParams, inputMsgHBL)
 	if err != nil {
 		t.Fatalf("------%s------", err.Error())
 	}
 
-	ready, _, err := hl7converter.Convert(convParams, inputMsgHBL, true)
+	ready, err := hl7converter.Convert(convParams, inputMsgHBL, true)
 	if err != nil {
 		t.Fatalf("------%s------", err.Error())
 	}
