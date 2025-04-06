@@ -34,11 +34,11 @@ Input (you send full message as []byte):
 	"L|1|N"
 
 Output (you receive rows splited by field separator):
- 	MSH|^\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|
-	PID||142212|||||||||||||||||||||||||||
-    OBR||142212|||||||||||||URI|||||||||||||||||||||||||||
-    OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||
-    OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||
+ 	"MSH|^\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|"
+	"PID||142212|||||||||||||||||||||||||||"
+    "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||"
+    "OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||"
+    "OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||"
     
 	message type: Results
 ```

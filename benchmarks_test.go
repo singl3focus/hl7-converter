@@ -7,6 +7,20 @@ import (
     hl7converter "github.com/singl3focus/hl7-converter/v2"
 )
 
+func Convert(p *hl7converter.ConverterParams, msg []byte) (*hl7converter.Result, error) {
+	c, err := hl7converter.NewConverter(p, hl7converter.WithUsingPositions())
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.Convert(msg)
+	if err != nil {
+		return nil, err
+	}
+	
+	return res, nil
+}
+
 func BenchmarkConvertWithPositions(b *testing.B) {
 	var (
 		inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
@@ -27,14 +41,17 @@ func BenchmarkConvertWithPositions(b *testing.B) {
 		b.Fatal(err)
 	}
 
+	// c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
+	// if err != nil {
+	// 	b.Fatalf("------%s------", err.Error())
+	// }
+
 	for i := 0; i < b.N; i++ {
-		_, err := hl7converter.Convert(convParams, inputMsgHBL, true)
+		_, err := Convert(convParams, inputMsgHBL)
 		if err != nil {
 			b.Fatal(err)
 		}
 	}
-
-	b.Log(success, "Test ConvertWithPositions right")
 }
 
 func BenchmarkConvertWithoutPositions(b *testing.B) {
@@ -56,14 +73,17 @@ func BenchmarkConvertWithoutPositions(b *testing.B) {
 		b.Fatal(err)
 	}
 
+	c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
+	if err != nil {
+		b.Fatalf("------%s------", err.Error())
+	}
+
 	for i := 0; i < b.N; i++ {
-		_, err := hl7converter.Convert(convParams, inputMsgHBL, false)
+		_, err := c.Convert(inputMsgHBL)
 		if err != nil {
 			b.Fatal(err)
 		}
 	}
-
-	b.Log(success, "Test ConvertWithoutPositions right")
 }
 
 func BenchmarkReadJSONConfig(b *testing.B) {

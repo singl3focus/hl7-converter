@@ -188,7 +188,7 @@ func NewErrWrongComponentLink(link string, compPos, compCount int, inputTag stri
 
 // ______________________________[RESULT_MODEL ERRORS]______________________________
 
-func NewErrIndexOutOfRange(idx, max uint, elem string) error {
+func NewErrIndexOutOfRange(idx, max int, elem string) error {
 	return &ErrWrapped{
 		Err:            ErrIndexOutOfRange,
 		AdditionalInfo: fmt.Sprintf("index %d max %d elem %s", idx, max, elem),
