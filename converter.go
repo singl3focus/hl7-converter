@@ -1,8 +1,6 @@
 package hl7converter
 
 import (
-	"sort"
-	"math"
 	"bufio"
 	"bytes"
 	"strconv"
@@ -10,15 +8,13 @@ import (
 )
 
 type Converter struct {
-	/*
-		Data parsed from config.
-		Goal: find metadata(position, default_value, components_number, linked and data about Tags, Separators)
-			about field so that then get value some field.
-	*/
+	// Data parsed from config.
+	// Goal: find metadata(position, default_value, components_number, linked and data about Tags, Separators)
+	// about field so that then get value some field.
 	Input, Output *Modification
 
 	// For effective split by rows of input message with help "bufio.Scanner"
-	LineSplit func(data []byte, atEOF bool) (advance int, token []byte, err error)
+	LineSplit bufio.SplitFunc
 
 	// Convertred structure of input message for fast find a needed field by tag
 	MsgSource *Msg
@@ -34,11 +30,11 @@ func WithUsingPositions() OptionFunc {
 	}
 }
 
-func NewConverter(in, out *Modification, opts ...OptionFunc) (*Converter, error) {
+func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 	converter := &Converter{
-		Input:  in,
-		Output: out,
-		LineSplit: GetCustomSplit(in.LineSeparator),
+		Input:  p.InMod,
+		Output: p.OutMod,
+		LineSplit: GetCustomSplit(p.InMod.LineSeparator),
 		MsgSource: &Msg{
 			Tags: make(map[TagName]SliceFields),
 		},
@@ -52,18 +48,23 @@ func NewConverter(in, out *Modification, opts ...OptionFunc) (*Converter, error)
 }
 
 var (
-	DefaultValuePointerIndx = 0
-	PointerIndx = DefaultValuePointerIndx
+	defaultValuePointerIndx = 0
+	pointerIndx = defaultValuePointerIndx // todo: move to Convert?
 )
 
-func (c *Converter) ResetPointerIndx() {
-	PointerIndx = DefaultValuePointerIndx
+func (c *Converter) resetPointerIndx() {
+	pointerIndx = defaultValuePointerIndx
+}
+
+func (c *Converter) resetState() {
+	c.resetPointerIndx()
 }
 
 /*_______________________________________[PARSE MSG AND EXECUTE OPRIONS SPECIFIED IN config]_______________________________________*/
 
 // GetCustomSplit
-func GetCustomSplit(sep string) func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+// todo: comment
+func GetCustomSplit(sep string) bufio.SplitFunc {
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
 			return 0, nil, nil
@@ -119,7 +120,6 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
 }
 
 // handleOptions
-// [NOTE]: CALL PANIC
 func (c *Converter) handleOptions(tag string, fields []string) (string, []string, error) {
 	options := c.Input.TagsInfo.Tags[tag].Options
 
@@ -128,13 +128,14 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 
 	for _, option := range options {
 		switch option {
-			// example: FN - 31(1 - Tag), len(fields) - 28. That we need add 2 empty fields
 		case "autofill":
+			// [EXAMPLE]: FN - 31 (1 - Tag), len(fields) - 28. That we need add 2 empty fields
+
 			diff := (c.Input.TagsInfo.Tags[tag].FieldsNumber - 1) - len(fields)
-			for i := 0; i < diff; i++ {
+			
+			for i := 0; i < diff; i++ { // [DEV] not use {for range diff} in order to easy support win7 version
 				newFields = append(newFields, "")
 			}
-
 		default:
 			return tag, newFields, NewErrUndefinedOption(option, tag)
 		}
@@ -146,15 +147,22 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 /*_______________________________________[GENERAL CONVERT]_______________________________________*/
 
 // Convert
-func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
-	// _________fill MsgSource in Converter structure
+// todo: errors
+func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
+	defer func() {
+        if r := recover(); r != nil {
+			err = NewFatalErrOfConverting(r)
+       }
+    }()
+
 	tags, err := c.ParseMsg(fullMsg)
 	if err != nil {
 		return nil, err
 	}
 	c.MsgSource.Tags = tags
 
-	var result *Result
+	c.resetState()
+
 	if c.UsingPositions {
 		result, err = c.convertWithPositions()
 	} else {
@@ -168,11 +176,12 @@ func (c *Converter) Convert(fullMsg []byte) (*Result, error) {
 }
 
 func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
+	defer c.resetPointerIndx()
+
 	tagPointerPositions := make(map[string]int) // Tag - Position
 	
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
 	scanner.Split(c.LineSplit)
-
 
     rows := make([]*Row, 0, 1)
 	for scanner.Scan() {
@@ -204,46 +213,32 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 		} else {
 			tagPointerPositions[inputTag]++
 		}
-		PointerIndx = tagPointerPositions[inputTag] // DANGER: [TENDER SPOT]
+		pointerIndx = tagPointerPositions[inputTag] // * DANGER: [TENDER SPOT]
 
 		row, err := c.convertTag(outputTag, &outputTagInfo)
 		if err != nil {
 			return nil, err
 		}
 
-		newRow := NewRow(c.Output.FieldSeparator, row)
-		rows = append(rows, newRow)
+		rows = append(rows, NewRow(c.Output.FieldSeparator, row))
 	}
+
+	// c.resetPointerIndx() // todo: check it, how about multiple msgs
 	
-	c.ResetPointerIndx()
-
-
-	result := NewResult(c.Output.LineSeparator, rows)
-	return result, nil
+	return NewResult(c.Output.LineSeparator, rows), nil
 }
 
 // convertWithPositions
 //
-// - Using tag.Count for change PointerIndx
+// - Using tag.Count for change pointerIndx
 // - Tags positons are static and are set in the configuration.
 func (c *Converter) convertWithPositions() (*Result, error) {
-	// _________prepare 'Ordered Slice of Tags' for convert
-	tempNumbers := make([]int, 0, 1)
-	for key, _ := range c.Output.TagsInfo.Positions {
-		k, err := strconv.Atoi(key)
-		if err != nil {
-			return nil, err
-		}
-		tempNumbers = append(tempNumbers, k)
-	}
-	sort.Ints(tempNumbers)
-
-	orderedTags := make([]string, 0, len(tempNumbers))
-	for _, key := range tempNumbers {
-		orderedTags = append(orderedTags, c.Output.TagsInfo.Positions[strconv.Itoa(key)])
+	orderedTags, err := c.Output.OrderedPositionTags()
+	if err != nil {
+		return nil, err
 	}
 
-	// _________set output count of tags
+	// set output count of tags
 	for _, outputTag := range orderedTags {
 		tag := c.Output.TagsInfo.Tags[outputTag] 
 
@@ -256,7 +251,7 @@ func (c *Converter) convertWithPositions() (*Result, error) {
 		c.Output.TagsInfo.Tags[outputTag] = tag
 	}
 	
-	// _________get result
+	// get result
 	rows := make([]*Row, 0, 1)
 	for _, tag := range orderedTags {
 		TagInfo, ok := c.Output.TagsInfo.Tags[tag]
@@ -265,34 +260,31 @@ func (c *Converter) convertWithPositions() (*Result, error) {
 		}
 
 		for i := 0; i < TagInfo.Count; i++ {
-			PointerIndx = i // DANGER: [TENDER SPOT]
+			pointerIndx = i // * DANGER: [TENDER SPOT]
 
 			row, err := c.convertTag(tag, &TagInfo)
 			if err != nil {
 				return nil, err
 			}
 			
-			newRow := NewRow(c.Output.FieldSeparator, row)
-			rows = append(rows, newRow)
+			rows = append(rows, NewRow(c.Output.FieldSeparator, row))
 		}
 
-		c.ResetPointerIndx() // clear pointer indx for next tag
+		c.resetPointerIndx() // clear pointer indx for next tag
 	}
 
-	result := NewResult(c.Output.LineSeparator, rows)
-	return result, nil
+	return NewResult(c.Output.LineSeparator, rows), nil
 }
 
 /*_______________________________________[CONVERT SPECIFIED TAG]_______________________________________*/
 
 // convertTag
-func (c *Converter) convertTag(outputTagName string, outputTagInfo *Tag) ([]*Field, error) {
+func (c *Converter) convertTag(outputTag string, outputTagInfo *Tag) ([]*Field, error) {
 	row := strings.Split(outputTagInfo.Tempalate, c.Output.FieldSeparator)
 
 	if outputTagInfo.FieldsNumber != ignoredFieldsNumber {
 		if len(row) != outputTagInfo.FieldsNumber || outputTagInfo.FieldsNumber < 1 {
-			return nil,
-				NewErrWrongFieldsNumber(outputTagName, outputTagInfo, len(row))
+			return nil, NewErrWrongFieldsNumber(outputTag, outputTagInfo, len(row))
 		}
 	}
 
@@ -304,29 +296,29 @@ func (c *Converter) convertTag(outputTagName string, outputTagInfo *Tag) ([]*Fie
 	return outputLine, nil
 }
 
-// assembleOutRow creates outLine and fills it. Also inserts component separators in fields with components.
+// assembleOutRow creates out line and fills it. Also inserts component separators in fields with components.
 func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, error) {
-	tempLine := make([]*Field, inTagInfo.FieldsNumber) // temp slice was initially filled by default value:""
-	for i := range tempLine {
-        tempLine[i] = &Field{} // Init empty values for tempLine
+	line := make([]*Field, inTagInfo.FieldsNumber) // temp slice was initially filled by default value:""
+	for i := range line {
+        line[i] = &Field{} // Init empty values for line
     }
-
 	
-	tempLine[0] = NewField(rowData[ignoredIndx], c.Output.ComponentSeparator, c.Output.ComponentArrSeparator) // first position is always placed by Tag
+	// first position is always placed by Tag
+	line[0] = NewField(rowData[ignoredIndx], c.Output.ComponentSeparator, c.Output.ComponentArrSeparator) 
 
-	// [DEV] - fieldPosition started from '0' not from 'ignoredIndx+1'
+	// [DEV] fieldPosition started from '0' not from 'ignoredIndx+1'
 	for fieldPosition, fieldValue := range rowData[ignoredIndx+1:] {
 		if fieldValue == "" {
 			continue
 		}
 
-		fieldPosition++ // because we started fro, 'ignoredIndx+1'
+		// it's not inc global var, just represent because we started from 'ignoredIndx+1'
+		fieldPosition++ 
 
 		fieldBlocks := strings.Split(fieldValue, OR)
-
 		switch len(fieldBlocks) {
-		case 1: // WITHOUT OPPORTUNITY GETTING DEFAULT_VALUE
-			mask, err := c.TempalateParse(fieldBlocks[0])
+		case 1: // WITHOUT OPPORTUNITY SET DEFAULT_VALUE
+			mask, err := TempalateParse(fieldBlocks[0])
 			if err != nil {
 				return nil, err
 			}
@@ -336,10 +328,10 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 				return nil, err
 			}
 
-			tempLine[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
+			line[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
 		case 2: // MUST BE TEMPLATE OR DEFAULT_VALUE
 			if fieldBlocks[0] != "" {
-				mask, err := c.TempalateParse(fieldBlocks[0])
+				mask, err := TempalateParse(fieldBlocks[0])
 				if err != nil {
 					return nil, err
 				}
@@ -349,59 +341,33 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 					return nil, err
 				}
 
-				tempLine[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
+				line[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
 			} else {
 				value, err := c.getDefaultFieldValue(fieldBlocks[1])
 				if err != nil {
 					return nil, err
 				}
 
-				tempLine[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
+				line[fieldPosition] = NewField(value, c.Output.ComponentSeparator, c.Output.ComponentArrSeparator)
 			}
-
 		default:
 			return nil, NewErrWrongParamCount(fieldValue, OR)
 		}
 	}
 
-	return tempLine, nil
-}
-
-func (c *Converter) TempalateParse(str string) ([]int, error) {
-	mask := make([]int, 0, len(str)) // example: [1,1,1,1,0,0,0,1,1,1], 1 - Symbol, 0 - Link
-	stLinkIndx, endLinkIndx := 0, 0
-
-	for i, v := range str {
-		if string(v) == linkElemSt {
-			stLinkIndx = i 
-		} else if string(v) == linkElemEnd {
-			endLinkIndx = i
-		}
-
-		if endLinkIndx > stLinkIndx {
-			for j := stLinkIndx; j < endLinkIndx; j++ {
-				mask[j] = itLink
-			}
-			mask = append(mask, itLink)
-			stLinkIndx, endLinkIndx = 0, 0
-		} else {
-			mask = append(mask, itSymbol)
-		}
-	}
-
-	return mask, nil
+	return line, nil
 }
 
 // getFieldValue is distributing of fields by linked fields number
 func (c *Converter) getFieldValue(mask []int, str string) (string, error) {
-	var output string
+	var builder strings.Builder
 
 	for i := 0; i < len(str); i++ {
 		if mask[i] == itSymbol {
-			output += string(str[i])
-		
+			builder.WriteByte(str[i])
 		} else if mask[i] == itLink {
-			var link string // // parse: Tag-Position (Without '<', '>')
+			var link string // parse: Tag-Position (Without '<', '>')
+			
 			for j := i; j < len(str); j++ {
 				if (mask[j] == itSymbol){
 					link = str[ i+1 : j-1 ]		
@@ -423,11 +389,11 @@ func (c *Converter) getFieldValue(mask []int, str string) (string, error) {
 				return "", err
 			}
 
-			output += value
+			builder.WriteString(value)
 		}
 	}	
 
-	return output, nil
+	return builder.String(), nil
 }
 
 // getDefaultFieldValue
@@ -457,8 +423,8 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 		return "", NewErrUndefinedInputTag(matchingTag, link)
 	}
 
-	if PointerIndx > (len(inTagInfo) - 1) {// countOfInputSameTagRows
-		return "", NewErrTooBigIndex(PointerIndx, len(inTagInfo) - 1)
+	if pointerIndx > (len(inTagInfo) - 1) {// countOfInputSameTagRows
+		return "", NewErrTooBigIndex(pointerIndx, len(inTagInfo) - 1)
 	}
 
 	position, err := strconv.ParseFloat(pos, 64)
@@ -470,11 +436,11 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 	differenceIndexes := 2
 
 	if isInt(position) {
-		value = inTagInfo[PointerIndx][int(position) - differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]), 
+		value = inTagInfo[pointerIndx][int(position) - differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]), 
 	} else {
 		fieldPosIndx, componentPosIndx := int(position) - differenceIndexes, getTenth(position) - 1
 		
-		fieldValue := inTagInfo[PointerIndx][fieldPosIndx]
+		fieldValue := inTagInfo[pointerIndx][fieldPosIndx]
 
 		components := strings.Split(fieldValue, c.Input.ComponentSeparator)
 		if len(components) == 1 {
@@ -491,14 +457,25 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 	return value, nil
 }
 
+/*_______________________________________[PARSE INPUT TO RESULT]_______________________________________*/
 
-// isInt return that number(float64) is Int or not
-func isInt(numb float64) bool {
-	return math.Mod(numb, 1.0) == 0
-}
+func (c *Converter) ParseInput(msg []byte) (*Result, error) {
+	modification := c.Input 
 
-// getTenth return tenth of number(float64)
-func getTenth(numb float64) int {
-	x := math.Round(numb*100) / 100
-	return int(x*10) % 10
+	scanner := bufio.NewScanner(bytes.NewReader(msg))
+	scanner.Split(c.LineSplit)
+
+    rows := make([]*Row, 0, 1)
+	for scanner.Scan() {
+		inputRow := strings.Split(scanner.Text(), modification.FieldSeparator)
+
+		fields := make([]*Field, 0, 1)
+		for _, f := range inputRow {
+			fields = append(fields, NewField(f, modification.ComponentSeparator, modification.ComponentArrSeparator))
+		}
+		
+		rows = append(rows, NewRow(modification.FieldSeparator, fields))
+	}
+	
+	return NewResult(modification.LineSeparator, rows), nil
 }

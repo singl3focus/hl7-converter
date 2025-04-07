@@ -2,18 +2,59 @@ package hl7converter
 
 import (
 	"fmt"
+	"strings"
 	"sort"
 	"bytes"
 	"bufio"
 	"slices"
-	"strings"
 )
 
+// ConverterParams
+type ConverterParams struct {
+	InMod, OutMod *Modification
+}
+
+func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
+	if !strings.Contains(cfgPath, ".json") {
+		return nil, NewErrInvalidJsonExtension(cfgPath)
+	}
+
+	inputModification, err := ReadJSONConfigBlock(cfgPath, cfgInBlockName)
+	if err != nil {
+		return nil, err
+	} else if inputModification == nil {
+		return nil, NewErrNilModification(cfgInBlockName, cfgPath)
+	}
+
+	outputModification, err := ReadJSONConfigBlock(cfgPath, cfgOutBlockName)
+	if err != nil {
+		return nil, err
+	} else if outputModification == nil {
+		return nil, NewErrNilModification(cfgOutBlockName, cfgPath)
+	}
+	
+	return &ConverterParams{
+		InMod: inputModification,
+		OutMod: outputModification,
+	}, nil
+}
 
 // IndetifyMsg
-// 
-// _______[INFO]_______
-// - IndetifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg 
+func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) {
+	MSG, err := ConvertToMSG(p, msg)
+	if err != nil {
+		return "", err
+	}
+
+	msgType, ok := indetifyMsg(MSG, p.InMod)
+	if !ok {
+		return "", fmt.Errorf("undefined type, msg: %v", MSG)
+	}
+
+	return msgType, nil
+}
+
+// IndetifyMsg  indetify by output modification (field: Types) and compare it with Tags in Msg 
 //
 // -------[NOTES]-------
 // - ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ ( ДОБАВИТЬ АВТО СПЛИТ MSG? ) 
@@ -39,20 +80,17 @@ func indetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 }
 
 
-// ConvertToMSG
-//
-// _______[INFO]_______
-// - Func return MSG model for get fields data specified in output 'linked_fields'.
+// ConvertToMSG c return MSG model for get fields data specified in output 'linked_fields'.
 // - Using only input modification
 //
 // -------[NOTES]-------
 // - We can do without copying the structure MSG
 //
-func ConvertToMSG(p ConverterParams , fullMsg []byte) (*Msg, error) {
+func ConvertToMSG(p *ConverterParams , fullMsg []byte) (*Msg, error) {
 	tags := make(map[TagName]SliceFields)
 
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
-	scanner.Split(p.LineSplit)
+	scanner.Split(GetCustomSplit(p.InMod.LineSeparator))
 
 	for scanner.Scan() {
 		token := scanner.Text() // [DEV] getting string representation of row
