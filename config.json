@@ -9,6 +9,12 @@
             "Results": [["H", "P", "R", "O", "C" ,"L"], ["H", "P", "O", "R", "L"]]
         },
 
+        "aliases": {
+            "Header": "H-5",
+            "Number": "O-3",
+            "LowerFlag": "L-3"
+        },
+
         "tags_info": {
             "positions": {
                 "1": "H",

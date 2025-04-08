@@ -14,8 +14,8 @@ const CR = "\r"
 func TestConverterParseInput(t *testing.T) {
 	var (
 		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
-		configInputBlockType  = "astm_hbl_single"
-		configOutputBlockType = "mindray_hbl_single"
+		configInputBlockType  = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
 	)
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
@@ -52,7 +52,14 @@ func TestConverterParseInput(t *testing.T) {
 			t.Fatalf("------%s------", err.Error())
 		}
 
+		err = result.ApplyAliases(convParams.InMod.Aliases)
+		if err != nil {
+			t.Fatalf("------%s------", err.Error())
+		}
+
 		t.Log(result.String())
+
+		t.Log(result.Aliases())
 	})
 }
 

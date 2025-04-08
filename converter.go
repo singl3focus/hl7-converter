@@ -20,6 +20,7 @@ type Converter struct {
 	MsgSource *Msg
 
 	UsingPositions bool
+	UsingAliases bool
 }
 
 type OptionFunc func(*Converter)
@@ -27,6 +28,12 @@ type OptionFunc func(*Converter)
 func WithUsingPositions() OptionFunc {
 	return func(n *Converter) {
 	  n.UsingPositions = true
+	}
+}
+
+func WithUsingAliases() OptionFunc {
+	return func(n *Converter) {
+	  n.UsingAliases = true
 	}
 }
 
@@ -170,6 +177,12 @@ func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if c.UsingAliases {
+		if err = result.ApplyAliases(c.Output.Aliases) ; err != nil {
+			return nil, err
+		}
 	}
 
 	return result, err

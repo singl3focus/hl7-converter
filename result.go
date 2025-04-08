@@ -2,6 +2,7 @@ package hl7converter
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -18,15 +19,17 @@ type Result struct {
 
 	Rows []*Row
 
+	aliases Aliases
+
 	vmOnce sync.Once
-	Otto *otto.Otto
+	otto   *otto.Otto
 }
 
 func NewResult(ls string, rws []*Row) *Result {
 	return &Result{
 		LineSeparator: ls,
 		Rows:          rws,
-		Otto:          otto.New(), // todo: check mem and cpu usage (need optimizations)
+		otto:          otto.New(), // todo: check mem and cpu usage (need optimizations)
 	}
 }
 
@@ -76,7 +79,6 @@ func (r *Result) SetRow(p int, row *Row) error {
 	return nil
 }
 
-
 type constraint interface {
 	isAllowed()
 }
@@ -87,31 +89,103 @@ func (k keyScript) isAllowed() {}
 
 const KeyScript keyScript = "msg"
 
-// UseScript run javascript 
-// scr may be a string, a byte slice, a bytes.Buffer, or an io.Reader, but it MUST always be in UTF-8.
+// UseScript run javascript code block.
+// Param 'scr' may be a string, a byte slice, a bytes.Buffer, or an io.Reader,
+// but it MUST always be in UTF-8.
+// Param 'k' set as required argument in order to specify developer use 'KeyScript' in their script.
 func (r *Result) UseScript(k constraint, scr any) error {
 	if k == nil {
 		return errors.New("what are you doing, bro?!") // todo: ErrNilKeyScript
 	}
 
 	r.vmOnce.Do(func() {
-		err := r.Otto.Set(string(KeyScript), r) // todo: we need specifie 
+		err := r.otto.Set(string(KeyScript), r) // todo: we need specifie
 		if err != nil {
 			panic(err) // todo: what to do?
 		}
 	})
 
-	script, err := r.Otto.Compile("", scr)
+	script, err := r.otto.Compile("", scr)
 	if err != nil {
 		return err // todo: error recognition
 	}
 
-	_, err = r.Otto.Run(script)
+	_, err = r.otto.Run(script)
 	if err != nil {
 		return err // todo: error recognition
 	}
 
 	return nil
+}
+
+func (r *Result) FindTag(tag string) (*Row, bool) {
+	for _, row := range r.Rows {
+		if t, ok := row.Tag(); ok && t == tag {
+			return row, true
+		}
+	}
+
+	return nil, false
+}
+
+func (r *Result) ApplyAliases(a Aliases) error {
+	for name, link := range a {	
+		elems := strings.Split(link, linkToField) // parse: Tag - Position
+		if len(elems) != 2 {
+			return NewErrInvalidLink(link)
+		}
+
+		tag, position := elems[0], elems[1]
+		if tag == "" || position == "" {
+			return NewErrInvalidLinkElems(link)
+		}
+
+		pos, err := strconv.ParseFloat(position, 64)
+		if err != nil {
+			return err
+		}
+
+		row, exist := r.FindTag(tag)
+		if !exist {
+			return errors.New("alias error: invalid link tag, not exists") // todo: Err definition
+		}
+
+		if isInt(pos) {
+			fieldIndx := int(pos) - 1 // todo: danger (set hardware constraint)
+
+			if !row.checkRange(fieldIndx) {
+				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // todo: Err definition
+			}
+
+			f := row.Fields[fieldIndx]
+
+			a[name] = f.Value
+		} else {
+			// field indx
+			fieldIndx, componentIndx := int(pos) - 1, getTenth(pos) - 1 // todo: danger (set hardware constraint)
+
+			if !row.checkRange(fieldIndx) {
+				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // todo: Err definition
+			}
+			
+			f := row.Fields[fieldIndx]
+			
+			comp := f.Components() // todo: do components as determined type with checkRange method and method just returns other type - []string
+			if componentIndx < 0 || componentIndx > len(comp) {
+				return errors.New("alias error: invalid link position" + "COMPONENT INT" + link) // todo: Err definition
+			}
+
+			a[name] = comp[componentIndx]
+		}
+	}
+
+	r.aliases = a
+
+	return nil
+}
+
+func (r *Result) Aliases() (Aliases, bool) {
+	return r.aliases, len(r.aliases) > 0
 }
 
 // [Row]
@@ -151,7 +225,7 @@ func (r *Row) Tag() (string, bool) {
 
 	tag := r.Fields[0]
 
-	return tag.Value, tag.Value != ""
+	return tag.Value, !tag.IsEmpty()
 }
 
 func (r *Row) checkRange(i int) bool {
@@ -226,8 +300,8 @@ func newArrayField(value, componentSeparator string) *Field {
 	return &Field{
 		Value: value,
 		// Array field cannot have an array separator because it's smallest unit,
-		// but for correct work of strings.ReplaceAll we use " " instead of default string value "" 
-		arrSep: " ",
+		// but for correct work of strings.ReplaceAll we use " " instead of default string value ""
+		arrSep:   " ",
 		compsSep: componentSeparator,
 	}
 }
@@ -238,6 +312,10 @@ func (f *Field) String() string {
 	}
 
 	return f.Value
+}
+
+func (f *Field) IsEmpty() bool {
+	return f.Value == ""
 }
 
 func (f *Field) Components() []string {

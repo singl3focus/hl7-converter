@@ -14,6 +14,9 @@ var jsonSchema = `{
             "component_separator" : {
                 "type": "string"
             },
+            "component_array_separator" : {
+                "type": "string"
+            },
             "field_separator": {
                 "type": "string"
             },
@@ -36,6 +39,13 @@ var jsonSchema = `{
 
                         "uniqueItems": true
                     }
+                }
+            },
+
+            "aliases" : {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "string"
                 }
             },
 
@@ -83,7 +93,7 @@ var jsonSchema = `{
                         }
                     },
 
-                    "required": ["linked", "fields_number", "template"]
+                    "required": ["linked", "fields_number", "count", "template"]
                 }
             }  
         },
