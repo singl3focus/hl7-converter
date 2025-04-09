@@ -3,6 +3,7 @@ package hl7converter
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"sort"
 	"strconv"
@@ -10,9 +11,16 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
-/*
-For parsing metadata of config
-*/
+var (
+	ErrInvalidConfig        = errors.New("config error: validate json has been unsuccessful")
+	ErrInvalidJSON          = errors.New("config error: specified modification is not 'map[string]any'")
+
+	ErrModificationNotFound = errors.New("config error: specified modification is not found in config")
+
+	ErrEmptyPositions = errors.New("config error: positions is empty")
+)
+
+// For parsing metadata of config
 type Modification struct {
 	ComponentSeparator    string `json:"component_separator"`
 	ComponentArrSeparator string `json:"component_array_separator"`
@@ -44,7 +52,7 @@ type Tag struct {
 
 func (m *Modification) OrderedPositionTags() ([]string, error) {
 	if len(m.TagsInfo.Positions) == 0 {
-		return nil, errors.New("positions zero") // todo: error definition
+		return nil, ErrEmptyPositions
 	}
 
 	pos := make([]int, 0, len(m.TagsInfo.Positions))
@@ -113,14 +121,14 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 		return nil, err
 	}
 
-	value, ok := objMap[bN] // Get needed blockName from map
+	v, ok := objMap[bN] // Get needed blockName from map
 	if !ok {
-		return nil, NewErrModificationNotFound(bN)
+		return nil, NewError(ErrModificationNotFound, fmt.Sprintf("modification %s", bN))
 	}
 
-	dataBlock, ok := value.(map[string]any) // Check type blockName
+	dataBlock, ok := v.(map[string]any) // Check type blockName
 	if !ok {
-		return nil, NewErrInvalidJSON(value)
+		return nil, NewError(ErrInvalidJSON, fmt.Sprintf("value %v", v))
 	}
 
 	jsonData, err := json.Marshal(dataBlock) // Marshal block data in order to convert block to needed structure

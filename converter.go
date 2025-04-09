@@ -56,7 +56,7 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 
 var (
 	defaultValuePointerIndx = 0
-	pointerIndx = defaultValuePointerIndx // todo: move to Convert?
+	pointerIndx = defaultValuePointerIndx // TODO: move to Convert?
 )
 
 func (c *Converter) resetPointerIndx() {
@@ -70,7 +70,7 @@ func (c *Converter) resetState() {
 /*_______________________________________[PARSE MSG AND EXECUTE OPRIONS SPECIFIED IN config]_______________________________________*/
 
 // GetCustomSplit
-// todo: comment
+// TODO: comment
 func GetCustomSplit(sep string) bufio.SplitFunc {
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
@@ -154,7 +154,7 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 /*_______________________________________[GENERAL CONVERT]_______________________________________*/
 
 // Convert
-// todo: errors
+// TODO: errors
 func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
 	defer func() {
         if r := recover(); r != nil {
@@ -236,7 +236,7 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 		rows = append(rows, NewRow(c.Output.FieldSeparator, row))
 	}
 
-	// c.resetPointerIndx() // todo: check it, how about multiple msgs
+	// c.resetPointerIndx() // TODO: check it, how about multiple msgs
 	
 	return NewResult(c.Output.LineSeparator, rows), nil
 }

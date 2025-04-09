@@ -2,12 +2,28 @@ package hl7converter
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/robertkrimen/otto"
 )
+
+var (
+	ErrIndexOutOfRange = errors.New("index out of range")
+
+	ErrScriptNilKey  = errors.New("script error: key is nil")
+	ErrScriptCompile = errors.New("script error: compilation failure")
+	ErrScriptRun     = errors.New("script error: run failure")
+
+	ErrFieldEmptyComponents = errors.New("field error: empty components")
+	ErrFieldEmptyArray = errors.New("field error: empty array")
+)
+
+func NewErrIndexOutOfRange(idx, max int, elem string) error {
+	return NewError(ErrIndexOutOfRange, fmt.Sprintf("index %d max %d elem %s", idx, max, elem))
+}
 
 /*
 	For flexible work with message
@@ -21,7 +37,7 @@ type Result struct {
 
 	aliases Aliases
 
-	vmOnce sync.Once
+	vmOnce RetryableOnce
 	otto   *otto.Otto
 }
 
@@ -29,7 +45,7 @@ func NewResult(ls string, rws []*Row) *Result {
 	return &Result{
 		LineSeparator: ls,
 		Rows:          rws,
-		otto:          otto.New(), // todo: check mem and cpu usage (need optimizations)
+		otto:          otto.New(), // TODO: check mem and cpu usage (need optimizations)
 	}
 }
 
@@ -79,6 +95,7 @@ func (r *Result) SetRow(p int, row *Row) error {
 	return nil
 }
 
+
 type constraint interface {
 	isAllowed()
 }
@@ -95,24 +112,28 @@ const KeyScript keyScript = "msg"
 // Param 'k' set as required argument in order to specify developer use 'KeyScript' in their script.
 func (r *Result) UseScript(k constraint, scr any) error {
 	if k == nil {
-		return errors.New("what are you doing, bro?!") // todo: ErrNilKeyScript
+		return ErrScriptNilKey
 	}
 
-	r.vmOnce.Do(func() {
-		err := r.otto.Set(string(KeyScript), r) // todo: we need specifie
+	err := r.vmOnce.Do(func() error {
+		err := r.otto.Set(string(KeyScript), r) 
 		if err != nil {
-			panic(err) // todo: what to do?
+			return err
 		}
+		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	script, err := r.otto.Compile("", scr)
 	if err != nil {
-		return err // todo: error recognition
+		return ErrScriptCompile
 	}
 
 	_, err = r.otto.Run(script)
 	if err != nil {
-		return err // todo: error recognition
+		return ErrScriptRun
 	}
 
 	return nil
@@ -128,8 +149,9 @@ func (r *Result) FindTag(tag string) (*Row, bool) {
 	return nil, false
 }
 
+// TODO: it's repeat logic of converter, how join it to single funcs not  
 func (r *Result) ApplyAliases(a Aliases) error {
-	for name, link := range a {	
+	for name, link := range a {
 		elems := strings.Split(link, linkToField) // parse: Tag - Position
 		if len(elems) != 2 {
 			return NewErrInvalidLink(link)
@@ -147,14 +169,14 @@ func (r *Result) ApplyAliases(a Aliases) error {
 
 		row, exist := r.FindTag(tag)
 		if !exist {
-			return errors.New("alias error: invalid link tag, not exists") // todo: Err definition
+			return errors.New("alias error: invalid link tag, not exists") // TODO: Err definition
 		}
 
 		if isInt(pos) {
-			fieldIndx := int(pos) - 1 // todo: danger (set hardware constraint)
+			fieldIndx := int(pos) - 1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // todo: Err definition
+				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // TODO: Err definition
 			}
 
 			f := row.Fields[fieldIndx]
@@ -162,17 +184,17 @@ func (r *Result) ApplyAliases(a Aliases) error {
 			a[name] = f.Value
 		} else {
 			// field indx
-			fieldIndx, componentIndx := int(pos) - 1, getTenth(pos) - 1 // todo: danger (set hardware constraint)
+			fieldIndx, componentIndx := int(pos) - 1, getTenth(pos) - 1  // * Danger 
 
 			if !row.checkRange(fieldIndx) {
-				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // todo: Err definition
+				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // TODO: Err definition
 			}
-			
+
 			f := row.Fields[fieldIndx]
-			
-			comp := f.Components() // todo: do components as determined type with checkRange method and method just returns other type - []string
-			if componentIndx < 0 || componentIndx > len(comp) {
-				return errors.New("alias error: invalid link position" + "COMPONENT INT" + link) // todo: Err definition
+
+			comp := f.Components()
+			if !comp.checkRange(componentIndx) {
+				return errors.New("alias error: invalid link position" + "COMPONENT INT" + link) // TODO: Err definition
 			}
 
 			a[name] = comp[componentIndx]
@@ -279,7 +301,7 @@ type Field struct {
 
 	compsSep  string
 	compsOnce sync.Once
-	comps     []string
+	comps     Components
 
 	arrSep  string
 	arrOnce sync.Once
@@ -318,20 +340,22 @@ func (f *Field) IsEmpty() bool {
 	return f.Value == ""
 }
 
-func (f *Field) Components() []string {
+func (f *Field) Components() Components {
 	f.compsOnce.Do(func() {
 		a := strings.ReplaceAll(f.Value, f.arrSep, f.compsSep)
-		f.comps = strings.Split(a, f.compsSep) // todo: Does it have correct behaviour?
+		f.comps = strings.Split(a, f.compsSep) // TODO: Does it have correct behaviour?
 	})
+
 	return f.comps
 }
 
-// ComponentsChecked returns ([]string, error), if slice does not meet expectations.
-func (f *Field) ComponentsChecked() ([]string, error) {
+// ComponentsChecked returns (Components, error), if slice does not meet expectations.
+func (f *Field) ComponentsChecked() (Components, error) {
 	comps := f.Components()
 	if len(comps) == 0 {
-		return nil, errors.New("field error: empty components") // todo: ErrEmptyComponents
+		return nil, ErrFieldEmptyComponents
 	}
+
 	return comps, nil
 }
 
@@ -344,14 +368,16 @@ func (f *Field) ComponentsChecked() ([]string, error) {
 //
 // What i means:
 //
-//			/* It's so comfortable, if i'm sure that's array must be exists (len > 0) */
+//		/* It's so comfortable, if i'm sure that's array must be exists (len > 0) */
 //			_ = res.Rows[0].Fields[3].Array()[0].ChangeValue("180")
 //	 	/* I need do some checks, but i'm sure that's array must be exists */
 //			_, err = res.Rows[0].Fields[3].Array()
 //	 	if err != nil {...}
+//
+// Ready.
 func (f *Field) Array() []*Field {
 	f.arrOnce.Do(func() {
-		// todo: Does it have correct behaviour?
+		// TODO: Does it have correct behaviour?
 		arrElem := strings.Split(f.Value, f.arrSep)
 
 		fieldArr := make([]*Field, 0, len(arrElem))
@@ -371,8 +397,9 @@ func (f *Field) Array() []*Field {
 func (f *Field) ArrayChecked() ([]*Field, error) {
 	arr := f.Array()
 	if len(arr) == 0 {
-		return nil, errors.New("field error: empty array") // todo: ErrEmptyArray
+		return nil, ErrFieldEmptyArray
 	}
+
 	return arr, nil
 }
 
@@ -382,4 +409,14 @@ func (f *Field) ChangeValue(v string) {
 	// Reset for re-init in next call of Array(), Components()
 	f.arrOnce = sync.Once{}
 	f.compsOnce = sync.Once{}
+}
+
+type Components []string
+
+func (c Components) Original() []string {
+	return c
+}
+
+func (c Components) checkRange(i int) bool {
+	return i >= 0 && i < len(c)
 }
