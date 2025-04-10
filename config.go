@@ -12,12 +12,15 @@ import (
 )
 
 var (
-	ErrInvalidConfig        = errors.New("config error: validate json has been unsuccessful")
-	ErrInvalidJSON          = errors.New("config error: specified modification is not 'map[string]any'")
+	ErrInvalidConfig = errors.New("config error: validate json has been unsuccessful")
+	ErrInvalidJSON   = errors.New("config error: specified modification is not 'map[string]any'")
 
 	ErrModificationNotFound = errors.New("config error: specified modification is not found in config")
 
 	ErrEmptyPositions = errors.New("config error: positions is empty")
+
+	ErrLinkWithoutStartSymbol = errors.New("config error: link without start symbol")
+	ErrLinkWithoutEndSymbol = errors.New("config error: link without end symbol")
 )
 
 // For parsing metadata of config
@@ -75,7 +78,8 @@ func (m *Modification) OrderedPositionTags() ([]string, error) {
 
 func TempalateParse(str string) ([]int, error) {
 	mask := make([]int, 0, len(str)) // example: [1,1,1,1,0,0,0,1,1,1], 1 - Symbol, 0 - Link
-	stLinkIndx, endLinkIndx := 0, 0
+
+	stLinkIndx, endLinkIndx := -1, -1
 
 	for i, v := range str {
 		if string(v) == linkElemSt {
@@ -85,38 +89,48 @@ func TempalateParse(str string) ([]int, error) {
 		}
 
 		if endLinkIndx > stLinkIndx {
-			for j := stLinkIndx; j < endLinkIndx; j++ {
-				mask[j] = itLink
+			if stLinkIndx == -1 {
+				return nil, NewError(ErrLinkWithoutStartSymbol,
+					fmt.Sprintf("field with link %s, link place %s", str, str[:endLinkIndx+1]))
 			}
-			mask = append(mask, itLink)
-			stLinkIndx, endLinkIndx = 0, 0
+
+			for j := stLinkIndx; j < endLinkIndx; j++ { // marking previous fields
+				mask[j] = itLink 
+			}
+			
+			mask = append(mask, itLink) // marking that field with index endLinkIndx+1
+
+			stLinkIndx, endLinkIndx = -1, -1
 		} else {
 			mask = append(mask, itSymbol)
 		}
 	}
 
+	if stLinkIndx > endLinkIndx {
+		return nil, NewError(ErrLinkWithoutEndSymbol, 
+			fmt.Sprintf("field with link %s, link place %s", str, str[stLinkIndx:]))
+	}
+
 	return mask, nil
 }
-
+//TODO: ADD ALIASES TO MINDTAY_HBL
 /*_______________________________________[PARSE CONFIG FILE]_______________________________________*/
 
-// readJSONConfig
-//
-// param::p  - it's config path
-// param::bТ - it's block name (name needed json block)
+// ReadJSONConfigBlock checking valid config, then read config, find specified block and umarshal it to Modification.
+// Function accepts arguments: config path, name needed json block.
 func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 	ok, err := validateJSONConfig(p)
 	if !ok || err != nil {
 		return nil, err
 	}
 
-	dataFile, err := os.ReadFile(p) // Reading config file
+	dataFile, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err
 	}
 
 	objMap := make(map[string]any)
-	err = json.Unmarshal(dataFile, &objMap) // Unmrashal config data to map
+	err = json.Unmarshal(dataFile, &objMap)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +176,6 @@ func validateJSONConfig(p string) (bool, error) {
 
 	if len(result.Errors()) > 0 {
 		var errorStr string
-
 		for i, err := range result.Errors() {
 			errorStr += err.Description()
 

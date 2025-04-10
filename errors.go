@@ -44,7 +44,7 @@ var (
 	FatalErrOfConverting     = errors.New("convert error: parse input message to struct has been unsuccesful")
 	ErrInvalidParseMsg       = errors.New("convert error: parse input message to struct has been unsuccesful")
 	ErrInputTagNotFound      = errors.New("convert error: input tag not found")
-	ErrOutputTagNotFound     = errors.New("convert error: linked tags in tag not found in output modification")
+	ErrOutputTagNotFound     = errors.New("convert error: linked tags in tag not found in output modification") // todo: clarify - are we can have linked one tag or many 
 	ErrUndefinedOption       = errors.New("convert error: undefined option by tag")
 	ErrUndefinedPositionTag  = errors.New("convert error: tag has position, but it's not found in tags")
 	ErrInvalidLink           = errors.New("convert error: invalid link")

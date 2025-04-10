@@ -114,6 +114,10 @@ func TestConvertRow(t *testing.T) {
 
 func TestConvertMultiRows(t *testing.T) {
 	var (
+		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configInputBlockType  = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
+		
 		inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
 			"P|1||||^||||||||||||||||||||||||||||\n" +
 			"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
@@ -132,20 +136,16 @@ func TestConvertMultiRows(t *testing.T) {
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||")
 
 		outputMsgTypeHBL = "Results"
-
-		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
-		configInputBlockType  = "astm_hbl"
-		configOutputBlockType = "mindray_hbl"
 	)
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		t.Fatal(err.Error())
 	}
 
 	c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		t.Fatal(err.Error())
 	}
 
 	t.Run("convert multi rows", func(t *testing.T) {
@@ -153,25 +153,53 @@ func TestConvertMultiRows(t *testing.T) {
 
 		msgType, err := hl7converter.IndetifyMsg(convParams, inputMsgHBL)
 		if err != nil {
-			t.Fatalf("------%s------", err.Error())
+			t.Fatal(err.Error())
 		}
 
 		ready, err := c.Convert(inputMsgHBL)
 		if err != nil {
-			t.Fatalf("------%s------", err.Error())
+			t.Fatal(err.Error())
 		}
-
-		res := ready.String()
-
+		
 		if msgType != outputMsgTypeHBL {
-			t.Fatal("------message type is wrong------")
+			t.Fatal("message type is wrong:", msgType)
 		}
-
+		
+		res := ready.String()
 		if !(res == string(outputMsgHBL)) {
-			t.Fatal("------converted msg is wrong------ \n", res)
+			t.Fatal("converted msg is wrong:\n", res)
 		}
 	})
 }
+
+func FuzzConvert(f *testing.F) {
+	var (
+		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configInputBlockType  = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
+	)
+
+	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
+	if err != nil {
+		f.Fatal(err.Error())
+	}
+
+	c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
+	if err != nil {
+		f.Fatal(err.Error())
+	}
+
+	f.Add([]byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327"))
+
+	f.Fuzz(func(t *testing.T, a []byte) {
+		_, err := c.Convert(a)
+		if err != nil {
+			t.Errorf("err = %s", err.Error())
+		}
+	})
+}
+
+// TODO: RACE CONDITION TEST FOR CONVERTER (pointerIndx) 
 
 // TODO: [ADD TEST FOR EVERY FUNCTION OF CONVERTING]
 /*

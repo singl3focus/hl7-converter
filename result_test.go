@@ -18,13 +18,13 @@ func TestNewField(t *testing.T) {
     tests := []struct {
         name           string
         fieldValue     string
-        wantComponents []string
+        wantComponents hl7converter.Components
         wantArray      []*hl7converter.Field
     }{
         {
             name:       "Ok",
             fieldValue: "sireAstmCom^1^P/LIS02^20241021",
-            wantComponents: []string{"sireAstmCom", "1", "P", "LIS02", "20241021"},
+            wantComponents: hl7converter.Components{"sireAstmCom", "1", "P", "LIS02", "20241021"},
             wantArray: []*hl7converter.Field{
                 {
                     Value: "sireAstmCom^1^P",
@@ -38,21 +38,23 @@ func TestNewField(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
+            t.Parallel()
+
             res := hl7converter.NewField(tt.fieldValue, componentSep, componentArrSep)
 
-            // --- Проверка компонентов ---
+            // --- Components check ---
             components := res.Components()
             if !reflect.DeepEqual(components, tt.wantComponents) {
                 t.Fatalf("Components mismatch:\ngot: %v\nwant: %v", components, tt.wantComponents)
             }
 
-			// --- Проверка массива ---
+			// --- Array check ---
             array := res.Array()
             if len(array) != len(tt.wantArray) {
                 t.Fatalf("Array length mismatch: got %d, want %d", len(array), len(tt.wantArray))
             }
 
-			// --- Проверка компонентов (дополнительно) ---
+			// --- Additional components check ---
 			components2 := res.Components() // Убедимся, что повторный вызов Components() не изменяет данные
 			if !reflect.DeepEqual(components, components2) {
 				t.Error("Components changed after second call")
@@ -60,7 +62,7 @@ func TestNewField(t *testing.T) {
 
 			res.ChangeValue("new^value")
 			componentsAfterChange := res.Components()
-			expected := []string{"new", "value"}
+			expected := hl7converter.Components{"new", "value"}
 			if !reflect.DeepEqual(componentsAfterChange, expected) {
 				t.Error("Components cache not reset after ChangeValue")
 			}
@@ -72,13 +74,11 @@ func TestNewField(t *testing.T) {
                 }
 
                 components := field.Components()
-                expectedComponents := strings.Split(tt.wantArray[i].Value, componentSep)
+                expectedComponents := hl7converter.Components(strings.Split(tt.wantArray[i].Value, componentSep))
                 if !reflect.DeepEqual(components, expectedComponents) {
                     t.Errorf("Array[%d].Components mismatch:\ngot: %v\nwant: %v", i, components, expectedComponents)
                 }
             }
-
-            t.Logf("------ Success %s ------", tt.name)
         })
     }
 }

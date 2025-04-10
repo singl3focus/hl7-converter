@@ -18,7 +18,10 @@ var (
 	ErrScriptRun     = errors.New("script error: run failure")
 
 	ErrFieldEmptyComponents = errors.New("field error: empty components")
-	ErrFieldEmptyArray = errors.New("field error: empty array")
+	ErrFieldEmptyArray      = errors.New("field error: empty array")
+
+	ErrAliasLinkTagNotExists    = errors.New("alias error: link tag not exists")
+	ErrAliasInvalidLinkPosition = errors.New("alias error: invalid link position")
 )
 
 func NewErrIndexOutOfRange(idx, max int, elem string) error {
@@ -95,6 +98,9 @@ func (r *Result) SetRow(p int, row *Row) error {
 	return nil
 }
 
+// TODO: Add InsertRow
+
+// TODO: Add RemoveRowByIndex
 
 type constraint interface {
 	isAllowed()
@@ -116,7 +122,7 @@ func (r *Result) UseScript(k constraint, scr any) error {
 	}
 
 	err := r.vmOnce.Do(func() error {
-		err := r.otto.Set(string(KeyScript), r) 
+		err := r.otto.Set(string(KeyScript), r)
 		if err != nil {
 			return err
 		}
@@ -149,7 +155,7 @@ func (r *Result) FindTag(tag string) (*Row, bool) {
 	return nil, false
 }
 
-// TODO: it's repeat logic of converter, how join it to single funcs not  
+// TODO: it's repeat logic of converter, how join it to single funcs not
 func (r *Result) ApplyAliases(a Aliases) error {
 	for name, link := range a {
 		elems := strings.Split(link, linkToField) // parse: Tag - Position
@@ -169,14 +175,14 @@ func (r *Result) ApplyAliases(a Aliases) error {
 
 		row, exist := r.FindTag(tag)
 		if !exist {
-			return errors.New("alias error: invalid link tag, not exists") // TODO: Err definition
+			return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("name %s link %s tag %s", name, link, tag))
 		}
 
 		if isInt(pos) {
 			fieldIndx := int(pos) - 1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // TODO: Err definition
+				return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("name %s link %s", name, link))
 			}
 
 			f := row.Fields[fieldIndx]
@@ -184,17 +190,17 @@ func (r *Result) ApplyAliases(a Aliases) error {
 			a[name] = f.Value
 		} else {
 			// field indx
-			fieldIndx, componentIndx := int(pos) - 1, getTenth(pos) - 1  // * Danger 
+			fieldIndx, componentIndx := int(pos)-1, getTenth(pos)-1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return errors.New("alias error: invalid link position" + "FIELD INT" + link) // TODO: Err definition
+				return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("name %s link %s", name, link))
 			}
 
 			f := row.Fields[fieldIndx]
 
 			comp := f.Components()
 			if !comp.checkRange(componentIndx) {
-				return errors.New("alias error: invalid link position" + "COMPONENT INT" + link) // TODO: Err definition
+				return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
 			}
 
 			a[name] = comp[componentIndx]
@@ -218,6 +224,18 @@ type Row struct {
 }
 
 func NewRow(fs string, fds []*Field) *Row {
+	return &Row{
+		FieldSeparator: fs,
+		Fields:         fds,
+	}
+}
+
+func NewRowWithFieldsValues(fs, cs, cas string, f ...string) *Row {
+	fds := make([]*Field, 0, len(f))
+	for _, v := range f {
+		fds = append(fds, NewField(v, cs, cas))
+	}
+
 	return &Row{
 		FieldSeparator: fs,
 		Fields:         fds,
