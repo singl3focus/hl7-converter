@@ -43,22 +43,24 @@ func Convert(withPositions bool) error {
 	return nil
 }
 
-func BenchmarkConvertWithPositions(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		err := Convert(true)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkConvert(b *testing.B) {
+	b.Run("convert_with_positions", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := Convert(true)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
-	}
-}
+	})
 
-func BenchmarkConvertWithoutPositions(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		err := Convert(false)
-		if err != nil {
-			b.Fatal(err)
+	b.Run("convert_without_positions", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			err := Convert(false)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
-	}
+	})
 }
 
 func BenchmarkReadJSONConfig(b *testing.B) {

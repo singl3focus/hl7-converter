@@ -98,6 +98,6 @@ var jsonSchema = `{
             }  
         },
     
-        "required": ["component_separator", "field_separator", "line_separator", "tags_info"]
+        "required": ["component_separator", "field_separator", "line_separator", "component_array_separator", "tags_info"]
     }    
 }`

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 
@@ -44,30 +45,25 @@ func TestNewField(t *testing.T) {
 
             // --- Components check ---
             components := res.Components()
-            if !reflect.DeepEqual(components, tt.wantComponents) {
-                t.Fatalf("Components mismatch:\ngot: %v\nwant: %v", components, tt.wantComponents)
-            }
+            assert.Equal(t, tt.wantComponents, components)
 
 			// --- Array check ---
             array := res.Array()
             if len(array) != len(tt.wantArray) {
-                t.Fatalf("Array length mismatch: got %d, want %d", len(array), len(tt.wantArray))
+                t.Fatalf("array length mismatch: got %d, want %d", len(array), len(tt.wantArray))
             }
 
 			// --- Additional components check ---
-			components2 := res.Components() // Убедимся, что повторный вызов Components() не изменяет данные
-			if !reflect.DeepEqual(components, components2) {
-				t.Error("Components changed after second call")
-			}
+			repeatedComponents := res.Components() 
+			assert.Equal(t, components, repeatedComponents)
 
 			res.ChangeValue("new^value")
-			componentsAfterChange := res.Components()
-			expected := hl7converter.Components{"new", "value"}
-			if !reflect.DeepEqual(componentsAfterChange, expected) {
-				t.Error("Components cache not reset after ChangeValue")
-			}
 
-			// --- Проверка полей массива ---
+			componentsAfterChange := res.Components()
+			newComponents := hl7converter.Components{"new", "value"}
+			assert.Equal(t, newComponents, componentsAfterChange)
+
+			// --- Array fields check---
             for i, field := range array {
                 if field.Value != tt.wantArray[i].Value {
                     t.Errorf("Array[%d].Value mismatch: got %q, want %q", i, field.Value, tt.wantArray[i].Value)

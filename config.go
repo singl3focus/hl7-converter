@@ -25,8 +25,8 @@ var (
 
 // For parsing metadata of config
 type Modification struct {
-	ComponentSeparator    string `json:"component_separator"`
-	ComponentArrSeparator string `json:"component_array_separator"`
+	ComponentSeparator    string `json:"component_separator"` // TODO: validate tags
+	ComponentArrSeparator string `json:"component_array_separator"` 
 	FieldSeparator        string `json:"field_separator"`
 	LineSeparator         string `json:"line_separator"`
 
@@ -51,6 +51,10 @@ type Tag struct {
 	Tempalate    string `json:"template"`
 
 	Options []string `json:"options,omitempty"` // [OPTIONAL]
+}
+
+func (m *Modification) Validate() error {
+	panic("not implm") // TODO
 }
 
 func (m *Modification) OrderedPositionTags() ([]string, error) {

@@ -1,6 +1,7 @@
 package hl7converter
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -68,6 +69,22 @@ func (r *Result) String() string {
 	}
 
 	return builder.String()
+}
+
+func (r *Result) Bytes() []byte {
+	if r == nil {
+		return []byte{}
+	}
+
+	var builder bytes.Buffer
+	for i, v := range r.Rows {
+		builder.Write(v.Bytes())
+		if i != len(r.Rows)-1 {
+			builder.WriteString(r.LineSeparator)
+		}
+	}
+
+	return builder.Bytes()
 }
 
 func (r *Result) checkRange(i int) bool {
@@ -145,6 +162,7 @@ func (r *Result) UseScript(k constraint, scr any) error {
 	return nil
 }
 
+// FindTag return row with first matched tag.
 func (r *Result) FindTag(tag string) (*Row, bool) {
 	for _, row := range r.Rows {
 		if t, ok := row.Tag(); ok && t == tag {
@@ -162,7 +180,7 @@ func (r *Result) ApplyAliases(a Aliases) error {
 		if len(elems) != 2 {
 			return NewErrInvalidLink(link)
 		}
-
+		
 		tag, position := elems[0], elems[1]
 		if tag == "" || position == "" {
 			return NewErrInvalidLinkElems(link)
@@ -182,25 +200,24 @@ func (r *Result) ApplyAliases(a Aliases) error {
 			fieldIndx := int(pos) - 1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("name %s link %s", name, link))
 			}
 
 			f := row.Fields[fieldIndx]
 
 			a[name] = f.Value
 		} else {
-			// field indx
 			fieldIndx, componentIndx := int(pos)-1, getTenth(pos)-1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("name %s link %s", name, link))
 			}
 
-			f := row.Fields[fieldIndx]
-
+			f := row.Fields[fieldIndx]			
+			
 			comp := f.Components()
 			if !comp.checkRange(componentIndx) {
-				return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
 			}
 
 			a[name] = comp[componentIndx]
@@ -213,7 +230,7 @@ func (r *Result) ApplyAliases(a Aliases) error {
 }
 
 func (r *Result) Aliases() (Aliases, bool) {
-	return r.aliases, len(r.aliases) > 0
+	return r.aliases, len(r.aliases) != 0
 }
 
 // [Row]
@@ -256,6 +273,22 @@ func (r *Row) String() string {
 	}
 
 	return builder.String()
+}
+
+func (r *Row) Bytes() []byte {
+	if r == nil {
+		return []byte{}
+	}
+
+	var builder bytes.Buffer
+	for i, f := range r.Fields {
+		builder.Write(f.Bytes())
+		if i != len(r.Fields)-1 {
+			builder.WriteString(r.FieldSeparator)
+		}
+	}
+
+	return builder.Bytes()
 }
 
 func (r *Row) Tag() (string, bool) {
@@ -352,6 +385,10 @@ func (f *Field) String() string {
 	}
 
 	return f.Value
+}
+
+func (f *Field) Bytes() []byte {
+	return []byte(f.Value)
 }
 
 func (f *Field) IsEmpty() bool {

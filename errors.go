@@ -40,7 +40,7 @@ func Assert(condition bool, format string, fields ...any) {
 
 
 
-var (
+var ( // TODO: move errors to origin place 
 	FatalErrOfConverting     = errors.New("convert error: parse input message to struct has been unsuccesful")
 	ErrInvalidParseMsg       = errors.New("convert error: parse input message to struct has been unsuccesful")
 	ErrInputTagNotFound      = errors.New("convert error: input tag not found")

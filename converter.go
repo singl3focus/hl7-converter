@@ -21,6 +21,9 @@ type Converter struct {
 
 	UsingPositions bool
 	UsingAliases bool
+
+	// Pointer to Tag Index in the MSG (for rows with same tags)
+	pointerIndx int
 }
 
 type OptionFunc func(*Converter)
@@ -45,6 +48,8 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 		MsgSource: &Msg{
 			Tags: make(map[TagName]SliceFields),
 		},
+
+		pointerIndx: defaultValuePointerIndx,
 	}
 
 	for _, opt := range opts {
@@ -55,12 +60,14 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 }
 
 var (
-	defaultValuePointerIndx = 0
-	pointerIndx = defaultValuePointerIndx // TODO: move to Convert?
+	defaultValuePointerIndx = 0 // TODO: add opporunity of parallel using converter (be careful with pointerIndx) 
+	// pointerIndx = defaultValuePointerIndx // TODO: move to Converter!
 )
 
+// TODO: add opporunity of parallel using converter (be careful with pointerIndx) 
+
 func (c *Converter) resetPointerIndx() {
-	pointerIndx = defaultValuePointerIndx
+	c.pointerIndx = defaultValuePointerIndx
 }
 
 func (c *Converter) resetState() {
@@ -226,7 +233,7 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 		} else {
 			tagPointerPositions[inputTag]++
 		}
-		pointerIndx = tagPointerPositions[inputTag] // * DANGER: [TENDER SPOT]
+		c.pointerIndx = tagPointerPositions[inputTag] // * DANGER: [TENDER SPOT]
 
 		row, err := c.convertTag(outputTag, &outputTagInfo)
 		if err != nil {
@@ -273,7 +280,7 @@ func (c *Converter) convertWithPositions() (*Result, error) {
 		}
 
 		for i := 0; i < TagInfo.Count; i++ {
-			pointerIndx = i // * DANGER: [TENDER SPOT]
+			c.pointerIndx = i // * DANGER: [TENDER SPOT]
 
 			row, err := c.convertTag(tag, &TagInfo)
 			if err != nil {
@@ -436,8 +443,8 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 		return "", NewErrUndefinedInputTag(matchingTag, link)
 	}
 
-	if pointerIndx > (len(inTagInfo) - 1) {// countOfInputSameTagRows
-		return "", NewErrTooBigIndex(pointerIndx, len(inTagInfo) - 1)
+	if c.pointerIndx > (len(inTagInfo) - 1) { // countOfInputSameTagRows
+		return "", NewErrTooBigIndex(c.pointerIndx, len(inTagInfo) - 1)
 	}
 
 	position, err := strconv.ParseFloat(pos, 64)
@@ -449,11 +456,11 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 	differenceIndexes := 2
 
 	if isInt(position) {
-		value = inTagInfo[pointerIndx][int(position) - differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]), 
+		value = inTagInfo[c.pointerIndx][int(position) - differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]), 
 	} else {
 		fieldPosIndx, componentPosIndx := int(position) - differenceIndexes, getTenth(position) - 1
 		
-		fieldValue := inTagInfo[pointerIndx][fieldPosIndx]
+		fieldValue := inTagInfo[c.pointerIndx][fieldPosIndx]
 
 		components := strings.Split(fieldValue, c.Input.ComponentSeparator)
 		if len(components) == 1 {
