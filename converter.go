@@ -20,6 +20,10 @@ type Converter struct {
 	MsgSource *Msg
 
 	UsingPositions bool
+	UsingAliases bool
+
+	// Pointer to Tag Index in the MSG (for rows with same tags)
+	pointerIndx int
 }
 
 type OptionFunc func(*Converter)
@@ -27,6 +31,12 @@ type OptionFunc func(*Converter)
 func WithUsingPositions() OptionFunc {
 	return func(n *Converter) {
 	  n.UsingPositions = true
+	}
+}
+
+func WithUsingAliases() OptionFunc {
+	return func(n *Converter) {
+	  n.UsingAliases = true
 	}
 }
 
@@ -38,6 +48,8 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 		MsgSource: &Msg{
 			Tags: make(map[TagName]SliceFields),
 		},
+
+		pointerIndx: defaultValuePointerIndx,
 	}
 
 	for _, opt := range opts {
@@ -48,12 +60,14 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 }
 
 var (
-	defaultValuePointerIndx = 0
-	pointerIndx = defaultValuePointerIndx // todo: move to Convert?
+	defaultValuePointerIndx = 0 // TODO: add opporunity of parallel using converter (be careful with pointerIndx) 
+	// pointerIndx = defaultValuePointerIndx // TODO: move to Converter!
 )
 
+// TODO: add opporunity of parallel using converter (be careful with pointerIndx) 
+
 func (c *Converter) resetPointerIndx() {
-	pointerIndx = defaultValuePointerIndx
+	c.pointerIndx = defaultValuePointerIndx
 }
 
 func (c *Converter) resetState() {
@@ -63,7 +77,7 @@ func (c *Converter) resetState() {
 /*_______________________________________[PARSE MSG AND EXECUTE OPRIONS SPECIFIED IN config]_______________________________________*/
 
 // GetCustomSplit
-// todo: comment
+// TODO: comment
 func GetCustomSplit(sep string) bufio.SplitFunc {
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {
@@ -147,7 +161,7 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 /*_______________________________________[GENERAL CONVERT]_______________________________________*/
 
 // Convert
-// todo: errors
+// TODO: errors
 func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
 	defer func() {
         if r := recover(); r != nil {
@@ -170,6 +184,12 @@ func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if c.UsingAliases {
+		if err = result.ApplyAliases(c.Output.Aliases) ; err != nil {
+			return nil, err
+		}
 	}
 
 	return result, err
@@ -213,7 +233,7 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 		} else {
 			tagPointerPositions[inputTag]++
 		}
-		pointerIndx = tagPointerPositions[inputTag] // * DANGER: [TENDER SPOT]
+		c.pointerIndx = tagPointerPositions[inputTag] // * DANGER: [TENDER SPOT]
 
 		row, err := c.convertTag(outputTag, &outputTagInfo)
 		if err != nil {
@@ -223,7 +243,7 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 		rows = append(rows, NewRow(c.Output.FieldSeparator, row))
 	}
 
-	// c.resetPointerIndx() // todo: check it, how about multiple msgs
+	// c.resetPointerIndx() // TODO: check it, how about multiple msgs
 	
 	return NewResult(c.Output.LineSeparator, rows), nil
 }
@@ -260,7 +280,7 @@ func (c *Converter) convertWithPositions() (*Result, error) {
 		}
 
 		for i := 0; i < TagInfo.Count; i++ {
-			pointerIndx = i // * DANGER: [TENDER SPOT]
+			c.pointerIndx = i // * DANGER: [TENDER SPOT]
 
 			row, err := c.convertTag(tag, &TagInfo)
 			if err != nil {
@@ -423,8 +443,8 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 		return "", NewErrUndefinedInputTag(matchingTag, link)
 	}
 
-	if pointerIndx > (len(inTagInfo) - 1) {// countOfInputSameTagRows
-		return "", NewErrTooBigIndex(pointerIndx, len(inTagInfo) - 1)
+	if c.pointerIndx > (len(inTagInfo) - 1) { // countOfInputSameTagRows
+		return "", NewErrTooBigIndex(c.pointerIndx, len(inTagInfo) - 1)
 	}
 
 	position, err := strconv.ParseFloat(pos, 64)
@@ -436,11 +456,11 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 	differenceIndexes := 2
 
 	if isInt(position) {
-		value = inTagInfo[pointerIndx][int(position) - differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]), 
+		value = inTagInfo[c.pointerIndx][int(position) - differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]), 
 	} else {
 		fieldPosIndx, componentPosIndx := int(position) - differenceIndexes, getTenth(position) - 1
 		
-		fieldValue := inTagInfo[pointerIndx][fieldPosIndx]
+		fieldValue := inTagInfo[c.pointerIndx][fieldPosIndx]
 
 		components := strings.Split(fieldValue, c.Input.ComponentSeparator)
 		if len(components) == 1 {

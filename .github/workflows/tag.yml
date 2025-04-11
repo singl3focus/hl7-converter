@@ -42,48 +42,47 @@ jobs:
 
       - name: Get previous version
         id: get_version
-        run: | # Получаем последний тег в формате "vX.Y.Z"
-          git fetch --tags
-          TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          echo "Current tags: $TAG"
+        run: | # Получаем теги, отсортированные по версии (в обратном порядке) и фильтруем постфиксы
+          TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          
           if [ -z "$TAG" ]; then
             echo "TAG=v1.0.0" >> $GITHUB_ENV
           else
             echo "TAG=$TAG" >> $GITHUB_ENV
           fi
 
+          echo "Current tags: $TAG" 
+
       - name: Determine new version
         id: version
-        run: |  # Извлекаем Major, Minor и Patch из тега
-          IFS='.' read -r -a version_parts <<< "${{ env.TAG }}"
-          MAJOR=${version_parts[0]:1}
-          MINOR=${version_parts[1]}
-          PATCH=${version_parts[2]}
+        run: |  # Извлекаем Major, Minor и Patch из тега. Поднимаем соотвествующу версию
+          CLEAN_TAG=${TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CLEAN_TAG"
+          
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
 
-          if git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "major"; then
+          if [[ "$LAST_COMMIT_MSG" == *"major"* ]]; then
               MAJOR=$((MAJOR + 1))
               MINOR=0
               PATCH=0
-          fi
-
-          if git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "feat"; then
+          elif [[ "$LAST_COMMIT_MSG" == *"feat"* ]]; then
               MINOR=$((MINOR + 1))
               PATCH=0
-          fi
-
-          if git log --pretty=format:'%s' --abbrev-commit -n 1 | grep -q "fix"; then
+          elif [[ "$LAST_COMMIT_MSG" == *"fix"* ]]; then
               PATCH=$((PATCH + 1))
+          else
+              echo "No version bump needed"
+              exit 0
           fi
 
-          echo "MAJOR=$MAJOR, MINOR=$MINOR, PATCH=$PATCH"  # Для отладки
-          echo "NEW_TAG=v$MAJOR.$MINOR.$PATCH" >> $GITHUB_ENV
+          echo "NEW_TAG=v${MAJOR}.${MINOR}.${PATCH}" >> $GITHUB_ENV
 
       - name: Create tag
         id: tag
-        run: echo "TAG=${{ env.NEW_TAG }}" >> $GITHUB_ENV
+        run: echo "TAG=${{ env.NEW_TAG }}" >> $GITHUB_ENV # Промежуточный этап
 
       - name: Push tag
-        run: |
+        run: | # Пуш тега
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
           git tag ${{ env.TAG }}

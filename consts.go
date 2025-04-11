@@ -14,6 +14,7 @@ const (
 	ignoredFieldsNumber = -1
 )
 
+// CONFIG PARAMS
 const (
 	linkElemSt  = "<"
 	linkElemEnd = ">"

@@ -1,8 +1,8 @@
 package hl7converter_test
 
 import (
+	"fmt"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter/v2"
@@ -14,99 +14,113 @@ const CR = "\r"
 func TestConverterParseInput(t *testing.T) {
 	var (
 		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
-		configInputBlockType  = "astm_hbl_single"
-		configOutputBlockType = "mindray_hbl_single"
+		configInputBlockType  = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
 	)
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 
 	var msg = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
-			"P|1||||^||||||||||||||||||||||||||||\n" +
-			"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
-			"C|||||||||||||||\n" +
-			"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
-			"C|||||||||||||||\n" +
-			"C|||||||||||||||\n" +
-			"C|||||||||||||||\n" +
-			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
-			"L|1|N")
+		"P|1||||^||||||||||||||||||||||||||||\n" +
+		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
+		"C|||||||||||||||\n" +
+		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
+		"C|||||||||||||||\n" +
+		"C|||||||||||||||\n" +
+		"C|||||||||||||||\n" +
+		"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
+		"L|1|N")
 
-	t.Run("converter parse input", func(t *testing.T) {
-		t.Parallel()
+	c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
+	if err != nil {
+		t.Fatalf("%s", err.Error())
+	}
 
-		c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
+	result, err := c.ParseInput(msg)
+	if err != nil {
+		t.Fatalf("%s", err.Error())
+	}
+
+	t.Run("aliases_usage", func(t *testing.T) {
+		err = result.ApplyAliases(convParams.InMod.Aliases)
 		if err != nil {
-			t.Fatalf("------%s------", err.Error())
+			t.Fatalf("%s", err.Error())
 		}
 
-		result, err := c.ParseInput(msg)
-		if err != nil {
-			t.Fatalf("------%s------", err.Error())
-		}
-
-		err = result.UseScript(hl7converter.KeyScript, `msg.Rows[0].Fields[1].ChangeValue("MSGTEST");`)
-		if err != nil {
-			t.Fatalf("------%s------", err.Error())
-		}
-
-		t.Log(result.String())
+		t.Log(result.Aliases())
 	})
 }
 
 func TestConvertRow(t *testing.T) {
+	// t.Parallel() // TODO: uncommit after pointerIndx will be internal field of Converter
+
 	var (
 		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
-		configInputBlockType  = "astm_hbl_single"
-		configOutputBlockType = "mindray_hbl_single"
+		configInputBlockType  = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
 	)
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 
 	c, err := hl7converter.NewConverter(convParams)
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 
 	tests := []struct {
-		name    string
-		input   []byte
-		output  []byte
-		wantErr bool
+		name   string
+		input  []byte
+		output string
+		err    error
 	}{
 		{
-			name:   "Ok",
+			name:   "ok_header",
 			input:  []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327"),
-			output: []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|"),
-			wantErr: false,
+			output: "MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|",
+		},
+		{
+			name:   "ok_order",
+			input:  []byte("O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||"),
+			output: "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||",
+		},
+		{
+			name:   "err_linked_tag_not_found",
+			input:  []byte("P|1||||^||||||||||||||||||||||||||||"),
+			output: "<nil>",                           // TODO: change <nil> to "" with ',ok' notation
+			err:    hl7converter.ErrUndefinedInputTag, // TODO: edit error name
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ready, err := c.Convert(tt.input)
-			if err != nil {
-				t.Fatalf("------%s------", err.Error())
+
+			if tt.err != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.err)
+			} else {
+				assert.NoError(t, err)
 			}
 
-			res := ready.String()
-
-			if !(res == string(tt.output)) {
-				t.Fatal("------converted msg is wrong------", "expected", string(tt.output), "received", string(res))
-			}
-
-			t.Logf("------Success %s------", tt.name)
+			assert.Equal(t, tt.output, ready.String())
 		})
 	}
 }
 
-func TestConvertMultiRows(t *testing.T) {
+func TestConvertMultiRowsWithManipulations(t *testing.T) {
+	// t.Parallel() // TODO: uncommit after pointerIndx will be internal field of Converter
+
 	var (
+		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configInputBlockType  = "astm_hbl"
+		configOutputBlockType = "mindray_hbl"
+
 		inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
 			"P|1||||^||||||||||||||||||||||||||||\n" +
 			"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
@@ -125,7 +139,86 @@ func TestConvertMultiRows(t *testing.T) {
 			"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||")
 
 		outputMsgTypeHBL = "Results"
+	)
 
+	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	result, err := c.Convert(inputMsgHBL)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	assert.Equal(t, outputMsgHBL, result.Bytes())
+
+	t.Run("indentify_msg", func(t *testing.T) {
+		msgType, err := hl7converter.IndetifyMsg(convParams, inputMsgHBL)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		assert.Equal(t, outputMsgTypeHBL, msgType)
+	})
+
+	t.Run("script_usage", func(t *testing.T) {
+		var (
+			oldField = "MSH"
+			newField = "NEW-MSH"
+
+			script = `msg.Rows[0].Fields[0].ChangeValue("%s");`
+		)
+
+		assert.Equal(t, result.Rows[0].Fields[0].Value, oldField)
+
+		err = result.UseScript(hl7converter.KeyScript, fmt.Sprintf(script, newField))
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		assert.Equal(t, result.Rows[0].Fields[0].Value, newField)
+
+		err = result.UseScript(hl7converter.KeyScript, fmt.Sprintf(script, oldField))
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		assert.Equal(t, result.Rows[0].Fields[0].Value, oldField)
+	})
+
+	t.Run("aliases", func(t *testing.T) {
+		var (
+			aliases = hl7converter.Aliases{
+				"Header":    "MSH-9.2",
+				"PatientID": "PID-3",
+				"Key":       "OBR-16",
+			}
+		)
+
+		err := result.ApplyAliases(aliases)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+
+		al, ok := result.Aliases()
+		if !ok {
+			t.Fatal("aliases is empty")
+		}
+
+		assert.Equal(t, al["Header"], "R01")
+		assert.Equal(t, al["PatientID"], "142212")
+		assert.Equal(t, al["Key"], "URI")
+	})
+}
+
+func FuzzConvert(f *testing.F) {
+	var (
 		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
 		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
@@ -133,101 +226,33 @@ func TestConvertMultiRows(t *testing.T) {
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		f.Fatal(err.Error())
 	}
 
-	c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
+	c, err := hl7converter.NewConverter(convParams)
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		f.Fatal(err.Error())
 	}
 
-	t.Run("convert multi rows", func(t *testing.T) {
-		t.Parallel()
+	f.Add([]byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327"))
 
-		msgType, err := hl7converter.IndetifyMsg(convParams, inputMsgHBL)
-		if err != nil {
-			t.Fatalf("------%s------", err.Error())
-		}
+	f.Fuzz(func(t *testing.T, input []byte) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("panic: %+v", r)
+			}
+		}()
 
-		ready, err := c.Convert(inputMsgHBL)
-		if err != nil {
-			t.Fatalf("------%s------", err.Error())
-		}
-
-		res := ready.String()
-
-		if msgType != outputMsgTypeHBL {
-			t.Fatal("------message type is wrong------")
-		}
-
-		if !(res == string(outputMsgHBL)) {
-			t.Fatal("------converted msg is wrong------ \n", res)
-		}
+		_, _ = c.Convert(input)
 	})
 }
 
-// todo: [ADD TEST FOR EVERY FUNCTION OF CONVERTING]
+// TODO: RACE CONDITION TEST FOR CONVERTER (pointerIndx)
+
+// TODO: [ADD TEST FOR EVERY FUNCTION OF CONVERTING]
 /*
 func TestNotLinkedTag(t *testing.T) {}
 func TestTagOptions(t *testing.T) {}
-*/
-
-/*
-var (
-	inputMsgHBL = []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
-		"P|1||||^||||||||||||||||||||||||||||\n" +
-		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
-		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
-		"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
-		"L|1|N")
-
-	outputMsgHBL = []byte("MSH|^\\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|" + CR +
-		"PID||142212|||||||||||||||||||||||||||" + CR +
-		"OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" + CR +
-		"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||" + CR +
-		"OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||")
-
-	outputMsgTypeHBL = "Results"
-)
-
-var (
-	inputNewMsgHBL = []byte("MSH|~\\&|Manufacturer|Model|||20220327||ORU~R01||P|2.3.1||||||ASCII|" + CR +
-		"PID||142212|||||||||||||||||||||||||||" + CR + "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||" +
-		CR + "OBX|||Urina4~screening~tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||")
-
-	outputNewMsgHBL = []byte("H|\\^&||||||||||P||20220327\n" +
-		"P||||||||||||||||||||||||||||||\n" +
-		"O||142212|||||||||||||URI^^|||||||||||||||\n" +
-		"R||^^^Urina4~screening~tempo-analisi-minuti^Urina4~screening~tempo-analisi-minuti^^Urina4~screening~tempo-analisi-minuti|180|||||F|||||")
-
-	inMsgHL7CL1200 = []byte("MSH|^~\\&|||||20120508150259||QRY^Q02|7|P|2.3.1||||||ASCII|||\n" +
-		"PID|1|1001|||Mike||19851001095133|M|||keshi|||||||||||||||beizhu|||||\n" +
-		"OBR|1|12345678|10|^|Y|20120405193926|20120405193914|20120405193914|||||linchuangzhenduan|20120405193914|serum|lincyisheng|keshi||||||||3|||||||||||||||||||||||\n" +
-		"OBX|1|NM|2|TBil|100| umol/L |-|N|||F||100|20120405194245||yishen|0|")
-
-	NEWinpCL8000 = []byte("H|\\~&|||eCL8000~00.00.03~I05A16100023|||||||RQ|1394-97|20191105190721" + CR +
-		"Q|1|123~134144||||||||||")
-)
-
-var (
-	inMsgHL7CL1200Mult = [][]byte{[]byte("MSH|^~\\&|||||20120508150259||QRY^Q02|7|P|2.3.1||||||ASCII|||\n" +
-		"PID|1|1001|||Mike||19851001095133|M|||keshi|||||||||||||||beizhu|||||\n" +
-		"OBR|1|12345678|10|^|Y|20120405193926|20120405193914|20120405193914|||||linchuangzhenduan|20120405193914|serum|lincyisheng|keshi||||||||3|||||||||||||||||||||||\n" +
-		"OBX|1|NM|2|TBil|100| umol/L |-|N|||F||100|20120405194245||yishen|0|"),
-
-		[]byte("MSH|^~\\&|||||20120508150259||QRY^Q02|7|P|2.3.1||||||ASCII|||\n" +
-			"PID|1|1001|||Mike||19851001095133|M|||keshi|||||||||||||||beizhu|||||\n" +
-			"OBR|1|12345678|10|^|Y|20120405193926|20120405193914|20120405193914|||||linchuangzhenduan|20120405193914|serum|lincyisheng|keshi||||||||3|||||||||||||||||||||||\n" +
-			"OBX|2|NM|5|ALT|98.2| umol/L |-|N|||F||98.2|20120405194403||yishen|0|"),
-
-		[]byte("MSH|^~\\&|||||20120508150259||QRY^Q02|7|P|2.3.1||||||ASCII|||\n" +
-			"PID|1|1001|||Mike||19851001095133|M|||keshi|||||||||||||||beizhu|||||\n" +
-			"OBR|1|12345678|10|^|Y|20120405193926|20120405193914|20120405193914|||||linchuangzhenduan|20120405193914|serum|lincyisheng|keshi||||||||3|||||||||||||||||||||||\n" +
-			"OBX|3|NM|6|AST|26.4| umol/L |-|N|||F||26.4|||yishen||")}
-
-	inMsgECL8000 = [][]byte{[]byte(
-		"H|\\~&|||eCL8000~01.00.02.251693~IA5A00001230|||||||PR|1394-97|20240701043119^P|N0002||||||~0~|||||||||||||||||||||||||||^O||160013~||~~0|R|||||||||20000101000000|0||||||||||F|||||^R|22|0~TSH~F|12.300~~↑|mIU/L|10.04~20.45|||N|||20000101000000|20000101000000|eCL8000~IA5A00001230^L|1|N")}
-)
 */
 
 func TestConverterParseMsg(t *testing.T) {
@@ -251,18 +276,17 @@ func TestConverterParseMsg(t *testing.T) {
 					[]string{"^\\&", "Manufacturer", "Model", "", "", "20220327", "", "ORU^R01", "", "P", "2.3.1", "", "", "", "", "", "ASCII", ""},
 				},
 			},
-			wantErr: false,
 		},
 	}
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 
 	c, err := hl7converter.NewConverter(convParams, hl7converter.WithUsingPositions())
 	if err != nil {
-		t.Fatalf("------%s------", err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 
 	for _, tt := range tests {
@@ -275,11 +299,7 @@ func TestConverterParseMsg(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			if !reflect.DeepEqual(res, tt.output) {
-				t.Fatal("incorrect answer", "current output", res, "wait output", tt.output)
-			}
-
-			t.Logf("------Success %s------", tt.name)
+			assert.Equal(t, tt.output, res)
 		})
 	}
 }

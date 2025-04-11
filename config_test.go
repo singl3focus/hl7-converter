@@ -3,7 +3,6 @@ package hl7converter_test
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter/v2"
@@ -32,11 +31,11 @@ func TestReadJSONConfigBlock(t *testing.T) {
 	if err != nil || m == nil {
 		t.Fatal(err)
 	}
-
-	t.Log("------Success TestReadJSONConfigBlock------")
 }
 
 func TestConverterTempalateParse(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		input   string
@@ -47,18 +46,28 @@ func TestConverterTempalateParse(t *testing.T) {
 			name:    "Ok - full line",
 			input:   "1.1^<H-2>^MINDRAY",
 			output:  []int{1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1},
-			wantErr: false,
 		},
 		{
 			name:    "Ok - just link",
 			input:   "<H-2>",
 			output:  []int{0, 0, 0, 0, 0},
-			wantErr: false,
+		},
+		{
+			name:    "Error - link without end char",
+			input:   "astm^<H-2",
+			wantErr: true,
+		},
+		{
+			name:    "Error - link without start char",
+			input:   "astm^H-2>",
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mask, err := hl7converter.TempalateParse(tt.input)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -66,11 +75,7 @@ func TestConverterTempalateParse(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			if slices.Compare(mask, tt.output) != 0 {
-				t.Fatal("incorrect answer", "current output", mask, "wait output", tt.output)
-			}
-
-			t.Logf("------Success %s------", tt.name)
+			assert.Equal(t, tt.output, mask)
 		})
 	}
 }

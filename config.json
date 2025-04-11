@@ -1,12 +1,18 @@
 {
     "astm_hbl": {
         "component_separator": "^",
-        "component_array_separator": "",
+        "component_array_separator": " ", 
         "field_separator": "|",
         "line_separator": "\n",
 
         "types": {
             "Results": [["H", "P", "R", "O", "C" ,"L"], ["H", "P", "O", "R", "L"]]
+        },
+
+        "aliases": {
+            "Header": "H-5",
+            "Number": "O-3",
+            "LowerFlag": "L-3"
         },
 
         "tags_info": {
@@ -50,12 +56,18 @@
 
     "mindray_hbl" : {
         "component_separator": "^",
-        "component_array_separator": "",
+        "component_array_separator": " ",
         "field_separator": "|",
         "line_separator": "\r",
 
         "types": {
             "Results": [["MSH", "PID", "OBR", "OBX"]]
+        },
+
+        "aliases": {
+            "Header": "MSH-9.2",
+            "PatientID": "PID-3",
+            "Key": "OBR-16"
         },
 
         "tags_info": {
@@ -89,46 +101,5 @@
                 }
             }
         }
-    },
-    
-    "astm_hbl_single": {
-        "component_separator": "^",
-        "field_separator": "|",
-        "line_separator": "\n",
-
-        "types": {
-            "Results": [["H", "P", "R", "O", "C" ,"L"], ["H", "P", "O", "R", "L"]]
-        },
-
-        "tags_info": {
-            "tags" : {
-                "H": {
-                    "linked": "MSH",
-                    "fields_number": 14,
-                    "template": "H|??\\^&|<MSH-10>|||||||||<MSH-11>||<MSH-7>"
-                }
-            }
-        }
-    },
-
-    "mindray_hbl_single" : {
-        "component_separator": "^",
-        "field_separator": "|",
-        "line_separator": "\r",
-
-        "types": {
-            "Results": [["MSH", "PID", "OBR", "OBX"]]
-        },
-
-        "tags_info": {
-            "tags" : {
-                "MSH": {
-                    "linked": "H",
-                    "options": ["autofill"],
-                    "fields_number": 19,
-                    "template": "MSH|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
-                }
-            }
-        }
-    } 
+    }
 }

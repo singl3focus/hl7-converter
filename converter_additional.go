@@ -1,12 +1,19 @@
 package hl7converter
 
 import (
-	"fmt"
-	"strings"
-	"sort"
-	"bytes"
 	"bufio"
+	"bytes"
+	"errors"
+	"fmt"
 	"slices"
+	"sort"
+	"strings"
+)
+
+var (
+	ErrInvalidJsonExtension = errors.New("config error: path doesn't contains extension 'json'")
+
+	ErrNilModification = errors.New("config error: modification was incorrectly read from the file because it's empty")
 )
 
 // ConverterParams
@@ -16,26 +23,29 @@ type ConverterParams struct {
 
 func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
 	if !strings.Contains(cfgPath, ".json") {
-		return nil, NewErrInvalidJsonExtension(cfgPath)
+		return nil, NewError(ErrInvalidJsonExtension, fmt.Sprintf("path %s", cfgPath))
 	}
 
-	inputModification, err := ReadJSONConfigBlock(cfgPath, cfgInBlockName)
+	inMod, err := ReadJSONConfigBlock(cfgPath, cfgInBlockName)
 	if err != nil {
 		return nil, err
-	} else if inputModification == nil {
-		return nil, NewErrNilModification(cfgInBlockName, cfgPath)
+	}
+	if inMod == nil {
+		return nil, NewError(ErrNilModification, fmt.Sprintf("modification %s path %s", cfgInBlockName, cfgPath))
 	}
 
-	outputModification, err := ReadJSONConfigBlock(cfgPath, cfgOutBlockName)
+	outMod, err := ReadJSONConfigBlock(cfgPath, cfgOutBlockName)
 	if err != nil {
 		return nil, err
-	} else if outputModification == nil {
-		return nil, NewErrNilModification(cfgOutBlockName, cfgPath)
 	}
 	
+	if outMod == nil {
+		return nil, NewError(ErrNilModification, fmt.Sprintf("modification %s path %s", cfgOutBlockName, cfgPath))
+	}
+
 	return &ConverterParams{
-		InMod: inputModification,
-		OutMod: outputModification,
+		InMod:  inMod,
+		OutMod: outMod,
 	}, nil
 }
 
@@ -46,7 +56,7 @@ func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) {
 		return "", err
 	}
 
-	msgType, ok := indetifyMsg(MSG, p.InMod)
+	msgType, ok := identifyMsg(MSG, p.InMod)
 	if !ok {
 		return "", fmt.Errorf("undefined type, msg: %v", MSG)
 	}
@@ -54,22 +64,21 @@ func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) {
 	return msgType, nil
 }
 
-// IndetifyMsg  indetify by output modification (field: Types) and compare it with Tags in Msg 
+// identifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg
 //
 // -------[NOTES]-------
-// - ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ ( ДОБАВИТЬ АВТО СПЛИТ MSG? ) 
-// 
-func indetifyMsg(msg *Msg, modification *Modification) (string, bool) {
+// - ИЗМЕНИТЬ ИДЕНТИФИКАЦИЮ ( ДОБАВИТЬ АВТО СПЛИТ MSG? )
+func identifyMsg(msg *Msg, modification *Modification) (string, bool) {
 	actualTags := make([]string, 0, len(msg.Tags))
-	for Tag := range msg.Tags {
-		actualTags = append(actualTags, string(Tag))
+	for t := range msg.Tags {
+		actualTags = append(actualTags, string(t))
 	}
 	sort.Strings(actualTags) // we sort in order to compare tags regardless of the positions of the tags
 
 	for TypeName, Tags := range modification.Types {
-		for _, someTags := range Tags{
+		for _, someTags := range Tags {
 			sort.Strings(someTags)
-	
+
 			if slices.Compare(actualTags, someTags) == 0 {
 				return TypeName, true
 			}
@@ -79,14 +88,12 @@ func indetifyMsg(msg *Msg, modification *Modification) (string, bool) {
 	return "", false
 }
 
-
 // ConvertToMSG c return MSG model for get fields data specified in output 'linked_fields'.
 // - Using only input modification
 //
 // -------[NOTES]-------
 // - We can do without copying the structure MSG
-//
-func ConvertToMSG(p *ConverterParams , fullMsg []byte) (*Msg, error) {
+func ConvertToMSG(p *ConverterParams, fullMsg []byte) (*Msg, error) {
 	tags := make(map[TagName]SliceFields)
 
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
@@ -102,11 +109,11 @@ func ConvertToMSG(p *ConverterParams , fullMsg []byte) (*Msg, error) {
 		}
 
 		processedTag, processedFields := TagName(tag), TagFields(fields)
-		
+
 		if _, ok := tags[processedTag]; ok {
 			tags[processedTag] = append(tags[processedTag], processedFields)
 		} else {
-			tags[processedTag] = make(SliceFields, 0, 1) 
+			tags[processedTag] = make(SliceFields, 0, 1)
 			tags[processedTag] = append(tags[processedTag], processedFields)
 		}
 	}
