@@ -12,20 +12,20 @@ import (
 )
 
 var (
-	ErrInvalidConfig = errors.New("config error: validate json has been unsuccessful")
-	ErrInvalidJSON   = errors.New("config error: specified modification is not 'map[string]any'")
+	ErrInvalidConfig = errors.New("validate json has been unsuccessful")
+	ErrInvalidJSON   = errors.New("specified modification is not 'map[string]any'")
 
-	ErrModificationNotFound = errors.New("config error: specified modification is not found in config")
+	ErrModificationNotFound = errors.New("specified modification is not found in config")
 
-	ErrEmptyPositions = errors.New("config error: positions is empty")
+	ErrEmptyPositions = errors.New("positions is empty")
 
-	ErrLinkWithoutStartSymbol = errors.New("config error: link without start symbol")
-	ErrLinkWithoutEndSymbol = errors.New("config error: link without end symbol")
+	ErrLinkWithoutStartSymbol = errors.New("link without start symbol")
+	ErrLinkWithoutEndSymbol = errors.New("link without end symbol")
 )
 
-// For parsing metadata of config
+// Modification struct dor parsing metadata of config
 type Modification struct {
-	ComponentSeparator    string `json:"component_separator"` // TODO: validate tags
+	ComponentSeparator    string `json:"component_separator"` // TODO: validate `tags:""`
 	ComponentArrSeparator string `json:"component_array_separator"` 
 	FieldSeparator        string `json:"field_separator"`
 	LineSeparator         string `json:"line_separator"`
@@ -94,7 +94,7 @@ func TempalateParse(str string) ([]int, error) {
 
 		if endLinkIndx > stLinkIndx {
 			if stLinkIndx == -1 {
-				return nil, NewError(ErrLinkWithoutStartSymbol,
+				return nil, NewError(ErrLinkWithoutStartSymbol, true,
 					fmt.Sprintf("field with link %s, link place %s", str, str[:endLinkIndx+1]))
 			}
 
@@ -111,19 +111,19 @@ func TempalateParse(str string) ([]int, error) {
 	}
 
 	if stLinkIndx > endLinkIndx {
-		return nil, NewError(ErrLinkWithoutEndSymbol, 
+		return nil, NewError(ErrLinkWithoutEndSymbol, true,
 			fmt.Sprintf("field with link %s, link place %s", str, str[stLinkIndx:]))
 	}
 
 	return mask, nil
 }
+
 //TODO: ADD ALIASES TO MINDTAY_HBL
-/*_______________________________________[PARSE CONFIG FILE]_______________________________________*/
 
 // ReadJSONConfigBlock checking valid config, then read config, find specified block and umarshal it to Modification.
 // Function accepts arguments: config path, name needed json block.
 func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
-	ok, err := validateJSONConfig(p)
+	ok, err := ValidateJSONConfig(p)
 	if !ok || err != nil {
 		return nil, err
 	}
@@ -141,12 +141,12 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 
 	v, ok := objMap[bN] // Get needed blockName from map
 	if !ok {
-		return nil, NewError(ErrModificationNotFound, fmt.Sprintf("modification %s", bN))
+		return nil, NewError(ErrModificationNotFound, true, fmt.Sprintf("modification %s", bN))
 	}
 
 	dataBlock, ok := v.(map[string]any) // Check type blockName
 	if !ok {
-		return nil, NewError(ErrInvalidJSON, fmt.Sprintf("value %v", v))
+		return nil, NewError(ErrInvalidJSON, true, fmt.Sprintf("value %v", v))
 	}
 
 	jsonData, err := json.Marshal(dataBlock) // Marshal block data in order to convert block to needed structure
@@ -163,7 +163,7 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 	return &obj, nil
 }
 
-func validateJSONConfig(p string) (bool, error) {
+func ValidateJSONConfig(p string) (bool, error) {
 	cfgPath := "file:///" + p
 
 	schemaLoader := gojsonschema.NewStringLoader(jsonSchema)

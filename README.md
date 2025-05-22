@@ -1,27 +1,40 @@
-# HL7-Converter 
-
-Package for convert hl7 message to different modifications.
-At the same time, the converter depends only on the config file, so it has extensive conversion capabilities.
-
-Some information about HL7: https://rhapsody.health/blog/complete-guide-to-hl7-standards/
-
-***Now Package correct work only with ASCII symbols***
-
 <p> <center>
 <img src="https://img.shields.io/badge/made_by-singl3focus-blue"> <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat">
 </center> </p>
 
-## Main Idea 
-You send full message as []byte to "Converter" and convert it with "Converter.Convert".  
+# HL7-Converter 
+
+A Go-based toolkit for converting medical data formats (HL7, ASTM, etc.) using JSON configuration. Designed for healthcare interoperability systems, ETL pipelines, FHIR integrations and other.
+
+**Key Features**: \
+✅ Declarative Configuration - Define conversion rules in JSON \
+✅ Sctipt integrations - You can use JS script on result of converting and thereby use dynamic manipulating of it without writing static code \
+✅ Validation - Schema validation for input/output data \
+✅ Benchmark-Ready - Prebuilt performance testing utilities 
+
+***Now Package correct work only with ASCII symbols***
+
+## Table of contents
+- [Base info](#base-info)  
+- [Quick Start](#quick-start)
+- [Configuration Guide](#configuration-guide)
+
+## Base info
+
+Some information about HL7: https://rhapsody.health/blog/complete-guide-to-hl7-standards/
+
+
+## Quick Start
+
+> You send full message as []byte to "Converter" and convert it with "Converter.Convert".  
 As a response, you will receive rows splited by field separator - this is done so that it is convenient to work on the line on top of the conversion. And after any your manipulation on any row, you can assemble it with "Converter.AssembleOutput".
 
-## Usage
 1. **Get package**
 ```go get github.com/singl3focus/hl7-converter@TAG```
 
 - Tag representations: \
-vX.X.X - for using on many platforms \
-vX.X.X-go1.20 - for building on Windows 7 
+```vX.X.X``` - ffor normal use \
+```vX.X.X-go1.20``` - build based on go 1.20 (for the Windows 7) 
 
 2. **Example of converting**:
 ```
@@ -40,7 +53,7 @@ Output (you receive rows splited by field separator):
     "OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||"
     "OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||"
     
-	message type: Results
+	Message type: Results
 ```
 
 ```go
@@ -82,10 +95,8 @@ func main() {
 	log.Println("Final result: ", string(res))
 }
 ```
-**Remember, this is just an example of how you can use it, but it can differently used or something else.**
 
-
-## Config file
+## Configuration Guide
 
 ### Advices
 1) **When you are filling any modification that you should be guided by the fact that this Transformation will occur based on the output modification, and not the input one.**

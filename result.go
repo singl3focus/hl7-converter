@@ -26,14 +26,10 @@ var (
 )
 
 func NewErrIndexOutOfRange(idx, max int, elem string) error {
-	return NewError(ErrIndexOutOfRange, fmt.Sprintf("index %d max %d elem %s", idx, max, elem))
+	return NewError(ErrIndexOutOfRange, true, fmt.Sprintf("index %d max %d elem %s", idx, max, elem))
 }
 
-/*
-	For flexible work with message
-*/
-
-// [Result]
+// Result struct for flexible work with message
 type Result struct {
 	LineSeparator string
 
@@ -193,14 +189,14 @@ func (r *Result) ApplyAliases(a Aliases) error {
 
 		row, exist := r.FindTag(tag)
 		if !exist {
-			return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("name %s link %s tag %s", name, link, tag))
+			return NewError(ErrAliasLinkTagNotExists, true, fmt.Sprintf("name %s link %s tag %s", name, link, tag))
 		}
 
 		if isInt(pos) {
 			fieldIndx := int(pos) - 1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("name %s link %s", name, link))
 			}
 
 			f := row.Fields[fieldIndx]
@@ -210,14 +206,14 @@ func (r *Result) ApplyAliases(a Aliases) error {
 			fieldIndx, componentIndx := int(pos)-1, getTenth(pos)-1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("name %s link %s", name, link))
 			}
 
 			f := row.Fields[fieldIndx]			
 			
 			comp := f.Components()
 			if !comp.checkRange(componentIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
 			}
 
 			a[name] = comp[componentIndx]
@@ -233,7 +229,7 @@ func (r *Result) Aliases() (Aliases, bool) {
 	return r.aliases, len(r.aliases) != 0
 }
 
-// [Row]
+// Row
 type Row struct {
 	FieldSeparator string
 
@@ -346,7 +342,7 @@ func (r *Row) SetField(p int, f *Field) error {
 	return nil
 }
 
-// [Field]
+// Field
 type Field struct {
 	Value string
 

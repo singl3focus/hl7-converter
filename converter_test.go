@@ -45,7 +45,7 @@ func TestConverterParseInput(t *testing.T) {
 	}
 
 	t.Run("aliases_usage", func(t *testing.T) {
-		err = result.ApplyAliases(convParams.InMod.Aliases)
+		err = result.ApplyAliases(convParams.InputModification.Aliases)
 		if err != nil {
 			t.Fatalf("%s", err.Error())
 		}
