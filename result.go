@@ -26,14 +26,11 @@ var (
 )
 
 func NewErrIndexOutOfRange(idx, max int, elem string) error {
-	return NewError(ErrIndexOutOfRange, fmt.Sprintf("index %d max %d elem %s", idx, max, elem))
+	return NewError(ErrIndexOutOfRange, true, fmt.Sprintf("index %d max %d elem %s", idx, max, elem))
 }
 
-/*
-	For flexible work with message
-*/
-
-// [Result]
+// Result holds converted rows and provides helpers to inspect/mutate them.
+// Not goroutine-safe; avoid concurrent mutation without external sync.
 type Result struct {
 	LineSeparator string
 
@@ -53,8 +50,7 @@ func NewResult(ls string, rws []*Row) *Result {
 	}
 }
 
-// String returns string representation of result.
-// Be careful: if result == nil, it's also returns non-empty string.
+// String returns string representation of result; nil Result renders "<nil>".
 func (r *Result) String() string {
 	if r == nil {
 		return "<nil>"
@@ -129,10 +125,8 @@ func (k keyScript) isAllowed() {}
 
 const KeyScript keyScript = "msg"
 
-// UseScript run javascript code block.
-// Param 'scr' may be a string, a byte slice, a bytes.Buffer, or an io.Reader,
-// but it MUST always be in UTF-8.
-// Param 'k' set as required argument in order to specify developer use 'KeyScript' in their script.
+// UseScript runs JavaScript with Otto, exposing the Result as global "msg".
+// Scripts are trusted (no sandbox/timeout). Pass KeyScript to opt-in.
 func (r *Result) UseScript(k constraint, scr any) error {
 	if k == nil {
 		return ErrScriptNilKey
@@ -162,7 +156,7 @@ func (r *Result) UseScript(k constraint, scr any) error {
 	return nil
 }
 
-// FindTag return row with first matched tag.
+// FindTag returns first row with the given tag.
 func (r *Result) FindTag(tag string) (*Row, bool) {
 	for _, row := range r.Rows {
 		if t, ok := row.Tag(); ok && t == tag {
@@ -173,14 +167,14 @@ func (r *Result) FindTag(tag string) (*Row, bool) {
 	return nil, false
 }
 
-// TODO: it's repeat logic of converter, how join it to single funcs not
+// ApplyAliases resolves aliases to values by link expressions and stores them inside Result.
 func (r *Result) ApplyAliases(a Aliases) error {
 	for name, link := range a {
 		elems := strings.Split(link, linkToField) // parse: Tag - Position
 		if len(elems) != 2 {
 			return NewErrInvalidLink(link)
 		}
-		
+
 		tag, position := elems[0], elems[1]
 		if tag == "" || position == "" {
 			return NewErrInvalidLinkElems(link)
@@ -193,14 +187,14 @@ func (r *Result) ApplyAliases(a Aliases) error {
 
 		row, exist := r.FindTag(tag)
 		if !exist {
-			return NewError(ErrAliasLinkTagNotExists, fmt.Sprintf("name %s link %s tag %s", name, link, tag))
+			return NewError(ErrAliasLinkTagNotExists, true, fmt.Sprintf("name %s link %s tag %s", name, link, tag))
 		}
 
 		if isInt(pos) {
 			fieldIndx := int(pos) - 1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("name %s link %s", name, link))
 			}
 
 			f := row.Fields[fieldIndx]
@@ -210,14 +204,14 @@ func (r *Result) ApplyAliases(a Aliases) error {
 			fieldIndx, componentIndx := int(pos)-1, getTenth(pos)-1 // * Danger
 
 			if !row.checkRange(fieldIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("name %s link %s", name, link))
 			}
 
-			f := row.Fields[fieldIndx]			
-			
+			f := row.Fields[fieldIndx]
+
 			comp := f.Components()
 			if !comp.checkRange(componentIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
+				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
 			}
 
 			a[name] = comp[componentIndx]
@@ -233,7 +227,7 @@ func (r *Result) Aliases() (Aliases, bool) {
 	return r.aliases, len(r.aliases) != 0
 }
 
-// [Row]
+// Row represents a single row with ordered fields.
 type Row struct {
 	FieldSeparator string
 
@@ -319,8 +313,7 @@ func (r *Row) SwapFields(p1, p2 int) error {
 	return nil
 }
 
-// ChangeFieldPosition move field from old position (oldp) to new position (newp)
-// and set empty field to new position
+// ChangeFieldPosition moves a field to a new position and empties the old one.
 func (r *Row) ChangeFieldPosition(oldp, newp int) error {
 	if !r.checkRange(oldp) {
 		return NewErrIndexOutOfRange(oldp, len(r.Fields), "fields")
@@ -346,7 +339,7 @@ func (r *Row) SetField(p int, f *Field) error {
 	return nil
 }
 
-// [Field]
+// Field is a single value with lazy-parsed components/arrays.
 type Field struct {
 	Value string
 

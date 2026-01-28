@@ -29,7 +29,11 @@
                     "fields_number": 14,
                     "template": "H|??\\^&|<MSH-10>|||||||||<MSH-11>||<MSH-7>"
                 },
-                "C": {},
+                "C": {
+                    "linked": "",
+                    "fields_number": -1,
+                    "template": ""
+                },
                 "P": {
                     "linked": "PID",
                     "fields_number": 31,
@@ -47,6 +51,7 @@
                     "template": ""
                 },
                 "L": {
+                    "linked": "",
                     "fields_number": 3,
                     "template": "L|??1|??N"
                 }

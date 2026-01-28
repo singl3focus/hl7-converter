@@ -1,0 +1,8 @@
+goos: windows
+goarch: amd64
+pkg: github.com/singl3focus/hl7-converter/v2
+cpu: 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz
+BenchmarkConvert/convert_with_positions-8         	    1186	   1037939 ns/op	  382665 B/op	    4721 allocs/op
+BenchmarkConvert/convert_without_positions-8      	    1098	   1066389 ns/op	  387112 B/op	    4727 allocs/op
+PASS
+ok  	github.com/singl3focus/hl7-converter/v2	2.735s
