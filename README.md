@@ -1,164 +1,126 @@
-<p> <center>
+﻿<p align="center">
 <img src="https://img.shields.io/badge/made_by-singl3focus-blue"> <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat">
-</center> </p>
+</p>
 
-# HL7-Converter 
+# HL7 Converter
 
-A Go-based toolkit for converting medical data formats (HL7, ASTM, etc.) using JSON configuration. Designed for healthcare interoperability systems, ETL pipelines, FHIR integrations and other.
+Go toolkit for converting HL7/ASTM-style lab messages by declarative JSON mappings. Suitable for LIS gateways, ETL pipelines, or integration bridges.
 
-**Key Features**: \
-✅ Declarative Configuration - Define conversion rules in JSON \
-✅ Sctipt integrations - You can use JS script on result of converting and thereby use dynamic manipulating of it without writing static code \
-✅ Validation - Schema validation for input/output data \
-✅ Benchmark-Ready - Prebuilt performance testing utilities 
+**Highlights**
+- Declarative mappings in JSON (validated by schema + runtime checks)
+- JS post-processing hook on the Result (Otto)
+- Examples, tests, and benchmarks included
 
-***Now Package correct work only with ASCII symbols***
+## What it is
+HL7 Converter maps inbound laboratory/clinical messages to outbound formats using JSON-defined modifications. You describe separators, tag ordering, templates, and aliases; the library parses input, applies templates/links, and produces an output message. No custom Go code is required for each mapping—config drives the transformation.
 
-## Table of contents
-- [Base info](#base-info)  
-- [Quick Start](#quick-start)
-- [Configuration Guide](#configuration-guide)
+## When to use
+- Building LIS connectors or vendor-to-vendor lab bridges (HL7 ORU/OML, ASTM devices, proprietary row-based feeds).
+- ETL pipelines where upstream produces row-delimited records and downstream expects HL7-like layout.
+- Rapid prototyping of device integrations without modifying business code—swap configs to add a new mapping.
+- Post-processing with small JS snippets to adjust payloads dynamically.
 
-## Base info
-
-Some information about HL7: https://rhapsody.health/blog/complete-guide-to-hl7-standards/
-
+**Compatibility**: ASCII messages only. Uses SemVer; v1+ promises backward-compatible API.
 
 ## Quick Start
-
-> You send full message as []byte to "Converter" and convert it with "Converter.Convert".  
-As a response, you will receive rows splited by field separator - this is done so that it is convenient to work on the line on top of the conversion. And after any your manipulation on any row, you can assemble it with "Converter.AssembleOutput".
-
-1. **Get package**
-```go get github.com/singl3focus/hl7-converter@TAG```
-
-- Tag representations: \
-```vX.X.X``` - ffor normal use \
-```vX.X.X-go1.20``` - build based on go 1.20 (for the Windows 7) 
-
-2. **Example of converting**:
-```
-Input (you send full message as []byte):
-	"H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
-	"P|1||||^||||||||||||||||||||||||||||\n" +
-	"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
-	"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
-	"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
-	"L|1|N"
-
-Output (you receive rows splited by field separator):
- 	"MSH|^\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|"
-	"PID||142212|||||||||||||||||||||||||||"
-    "OBR||142212|||||||||||||URI|||||||||||||||||||||||||||"
-    "OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||"
-    "OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||"
-    
-	Message type: Results
+```bash
+go get github.com/singl3focus/hl7-converter/v2@latest
 ```
 
 ```go
 package main
 
 import (
-	"os"
-	"log"
-	"strings"
-)
+    "log"
+    "path/filepath"
 
-const (
-	configFilename = "config.json"
-
-	configInputBlockType = "hl7_astm"
-	configOutputBlockType = "hl7_mindray"
+    hl7converter "github.com/singl3focus/hl7-converter/v2"
 )
 
 func main() {
-	msg := []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
-		"P|1||||^||||||||||||||||||||||||||||\n" +
-		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
-		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
-		"L|1|N") 
+    cfgPath := filepath.Join(".", hl7converter.CfgJSON)
 
-	convParams, err := hl7converter.NewConverterParams(configFilename, configInputBlockType, configOutputBlockType)
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
+    params, err := hl7converter.NewConverterParams(cfgPath, "astm_hbl", "mindray_hbl")
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	ready, _, err := hl7converter.Convert(convParams, inputMsgHBL)
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
+    conv, err := hl7converter.NewConverter(params, hl7converter.WithUsingPositions(), hl7converter.WithUsingAliases())
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	res := ready.AssembleMessage()
-	log.Println("Final result: ", string(res))
+    input := []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\nP|1||||^||||||||||||||||||||||||||||\nO|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\nR|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\nR|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\nL|1|N")
+
+    msgType, err := hl7converter.IndetifyMsg(params, input)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    result, err := conv.Convert(input)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    _ = msgType // use message type for routing if needed
+    log.Print(result.String())
 }
 ```
 
-## Configuration Guide
+## Stable API (v1)
+- Construction: `NewConverterParams`, `NewConverter` (options: `WithUsingPositions`, `WithUsingAliases`).
+- Execution: `Converter.Convert`, `Converter.ParseMsg`, `Converter.ParseInput`.
+- Types: `Result` (+ `UseScript`, `Aliases`, `FindTag`, `SwapRows/SetRow`), `Row`, `Field`, `Msg`.
+- Config: `ReadJSONConfigBlock`, `ValidateJSONConfig`, `Modification.Validate`.
+- Utilities: `IndetifyMsg`, constants `CfgJSON/CfgSchemaJSON`.
+API is considered stable: no breaking changes without a major version bump; thread safety is not guaranteed (see below).
 
-### Advices
-1) **When you are filling any modification that you should be guided by the fact that this Transformation will occur based on the output modification, and not the input one.**
-2) **Now converter works by 2 principle:** 
-	- Principle of create output rows based on *Input Message*, it's means that every output tag will be choose according inputModification.TagsInfo.Tag[InputTag].Linked
-	- Principle of create output rows based on *Output Modification*, it's means that you always can get rows according to the templates specified in Output Modification
+## Config Guide (schema-backed)
+- See config.schema.json; sample config in config.json.
+- Required per modification: component_separator, component_array_separator, field_separator, line_separator, tags_info.
+- tags_info.positions describes output order; keys are numeric strings, values are tag names present in tags_info.tags.
+- Each tag requires linked, fields_number (use -1 to skip length check), template; optional options currently supports autofill.
+- Templates support <TAG-INDEX> (float for components, e.g., <O-16.1>), defaults via ??default.
 
-### Rules
-- **See examples and fill it out like**
+## How it works
+1) Load two modifications (input/output) from JSON.
+2) Parse input message into tags/fields using input separators and options (e.g., autofill).
+3) Convert either by scanning input tags (default) or by output positions (UsingPositions).
+4) Fill templates: literals stay, links like `<TAG-3>` pull fields, `<TAG-3.1>` pulls components, `??value` sets defaults.
+5) Optionally apply aliases to expose commonly used values.
+6) Optionally run JS over the Result to tweak payload.
 
-#### Template filling
+## Capabilities
+- HL7/ASTM-style row parsing with custom separators.
+- Positional or input-driven generation of output rows.
+- Component addressing with float-style indexes for components.
+- Aliases to surface key values for routing or logging.
+- JS post-processing (trusted code) on the full Result object.
+- JSON Schema validation plus runtime validation for templates and options.
 
-#### JSON
-- All keys in JSON must be string
+## Limitations
+- ASCII-only payloads are expected.
+- No built-in sandbox or timeout for JS (run only trusted scripts).
+- Converter/Result are not goroutine-safe; use per-request instances or external sync.
 
-#### Rows
-- ***Rows of message cannot contain a line separator otherwise the conversion will be incorrect. \
-If you meet that line separator equal component separator, you need change all component separator in message on other symbol (in config you need specifie replaced symbol), and after converting replace component separator back*** 
+## JS scripts
+Result.UseScript exposes the Result as global msg inside an Otto VM. Scripts are trusted (no sandbox/timeout), so run only controlled code.
 
-#### Tags
-- If you set `fields_numbe more than 0`, converter will be `compare fields_number and template fields_number` . If you set `fields_number = -1`, it's not be checking
-- **It was decided that the `default_value (which specified with help 'OR' symbol)` of the field should not be substituted for the `template`, this was done so that the developer aimed at obtaining values through the template could be guaranteed to make sure that an error would come.**
+## Thread safety
+Converter and Result are not goroutine-safe yet; do not share instances across goroutines without external synchronization.
 
-[Deprecated]
-- if you specify multiple values in array, they must be separated by a comma ***(,)***
-- in case if linked tags has more than one match will be choose first one 
-- field "Delimeters" must be set manual with the help setup default_value, which must contains line with values of all separators, else you can get incorrect conversion
+## Testing and benchmarks
+Run `go test ./...`. Benchmarks live in benchmarks/ (see benchmarks_test.go).
 
-- If message contains more than one multitag Converter.Convert return err. (Current version)
+## Practical patterns
+- Routing by message type: use `IndetifyMsg` after parsing to branch by type.
+- Aliases for common fields: call `ApplyAliases` to extract values like patient ID or header keys without re-walking rows.
+- Positional outputs: enable `WithUsingPositions` when the output order is fixed and must include repeated tags with known counts.
+- Template defaults: prefer explicit defaults via `??value` to keep failures visible when data is missing.
+- JS tweaks: small, deterministic scripts (e.g., renaming a tag or swapping fields) instead of complex business logic.
 
-- Converter wiil be try set default value in this cases:
-	- If set value from input field to output has been unsuccessful 
-	- If "linked_fields" is empty 
+## Benchmarking
+Benchmarks in `benchmarks/` cover realistic device-like payloads. To run: `go test -bench=. ./...`. Use them to gauge performance after changing configs or templates.
 
-> if you want this not to happen, just delete the "default_value" field in the configuration
-
-
-### Structure [Deprecated]
-- First comes the name of the config(*example: "device_protocol"*), then the delimiter fields and an array of tags.
-
-- If tag hasn't have Linked - write [""]. It's will be means that this tag couldn't have links with other tags, but other tags could be have links with this tag.
-
-- Elements can contains default value:
-    - default value must be element, not array 
-
-- linked_fields array consists words which bonded by "-". Structure element of linked_fields: TAG-POSITION (this params of input message)
-
-### QA
-❓ Is it possible to specify just the types (name of type), leave the field value empty, i.e. leave the tags empty to do a type check?
-- No. Because the comparison takes place piecemeal and the meaning of the tags is important, if they are not specified, then the message will not be able to be identified in any way
-
-❓ Is the "linked" field for the tag and "linked_fields" required for the fields?
-- "linked" is required for the tag, but it may be empty => this tag does not refer to anything, but it can be referenced; "linked_fields" is optional
-
-❓ How is a field linked if multiple tags are specified in linked_fields ["H-1", "H-2"]
-- If several links are specified in linked_fields, then the values taken from these links will be connected using component_separator and written to the position of this field
-
-❓ Are types required?
-- No. It is important to know that the type of msg is determined both by the input message + input modification and by the converted message + output modification, conclusion: the main thing is to correctly pass the parameters to the function
-
-❓ The conversion takes place exactly according to the fields specified in the config, or simply the initial message is divided by "|" and the field number is taken
-- At the very beginning, the incoming message is parsed in a certain way for easy search, then the specified links are searched for a parsed structure
-
-## Support
-If you have any difficulties, problems or questions, you can just write to me by telegram <https://t.me/single_focus>.
+## License
+MIT

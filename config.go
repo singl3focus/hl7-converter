@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -19,14 +20,17 @@ var (
 
 	ErrEmptyPositions = errors.New("positions is empty")
 
+	ErrNilModification = errors.New("modification is nil")
+	ErrEmptyTags       = errors.New("tags is empty")
+
 	ErrLinkWithoutStartSymbol = errors.New("link without start symbol")
-	ErrLinkWithoutEndSymbol = errors.New("link without end symbol")
+	ErrLinkWithoutEndSymbol   = errors.New("link without end symbol")
 )
 
 // Modification struct dor parsing metadata of config
 type Modification struct {
 	ComponentSeparator    string `json:"component_separator"` // TODO: validate `tags:""`
-	ComponentArrSeparator string `json:"component_array_separator"` 
+	ComponentArrSeparator string `json:"component_array_separator"`
 	FieldSeparator        string `json:"field_separator"`
 	LineSeparator         string `json:"line_separator"`
 
@@ -54,7 +58,56 @@ type Tag struct {
 }
 
 func (m *Modification) Validate() error {
-	panic("not implm") // TODO
+	if m == nil {
+		return ErrNilModification
+	}
+
+	if len(m.ComponentSeparator) == 0 || len(m.FieldSeparator) == 0 || len(m.LineSeparator) == 0 || len(m.ComponentArrSeparator) == 0 {
+		return fmt.Errorf("invalid separators: component=%q component_array=%q field=%q line=%q", m.ComponentSeparator, m.ComponentArrSeparator, m.FieldSeparator, m.LineSeparator)
+	}
+
+	if len(m.TagsInfo.Tags) == 0 {
+		return ErrEmptyTags
+	}
+
+	if len(m.TagsInfo.Positions) == 0 {
+		return ErrEmptyPositions
+	}
+
+	for posKey, tagName := range m.TagsInfo.Positions {
+		if _, err := strconv.Atoi(posKey); err != nil {
+			return fmt.Errorf("positions key %q is not integer: %w", posKey, err)
+		}
+
+		if tagName == "" {
+			return fmt.Errorf("positions value is empty for key %q", posKey)
+		}
+
+		if _, ok := m.TagsInfo.Tags[tagName]; !ok {
+			return fmt.Errorf("positions references unknown tag %q", tagName)
+		}
+	}
+
+	for tagName, tag := range m.TagsInfo.Tags {
+		if tag.FieldsNumber != ignoredFieldsNumber && tag.FieldsNumber < 0 {
+			return fmt.Errorf("tag %s has invalid fields_number %d", tagName, tag.FieldsNumber)
+		}
+
+		for _, opt := range tag.Options {
+			if _, ok := mapOfOptions[opt]; !ok {
+				return NewErrUndefinedOption(opt, tagName)
+			}
+		}
+
+		if tag.Tempalate != "" && tag.FieldsNumber > 0 {
+			fields := strings.Split(tag.Tempalate, m.FieldSeparator)
+			if len(fields) != tag.FieldsNumber {
+				return NewErrWrongFieldsNumber(tagName, &tag, len(fields))
+			}
+		}
+	}
+
+	return nil
 }
 
 func (m *Modification) OrderedPositionTags() ([]string, error) {
@@ -99,9 +152,9 @@ func TempalateParse(str string) ([]int, error) {
 			}
 
 			for j := stLinkIndx; j < endLinkIndx; j++ { // marking previous fields
-				mask[j] = itLink 
+				mask[j] = itLink
 			}
-			
+
 			mask = append(mask, itLink) // marking that field with index endLinkIndx+1
 
 			stLinkIndx, endLinkIndx = -1, -1
@@ -157,6 +210,10 @@ func ReadJSONConfigBlock(p, bN string) (*Modification, error) {
 	var obj Modification
 	err = json.Unmarshal(jsonData, &obj) // Unmarshal block data to convert to needed structure
 	if err != nil {
+		return nil, err
+	}
+
+	if err := obj.Validate(); err != nil {
 		return nil, err
 	}
 

@@ -23,12 +23,14 @@ func NewErrUndefinedInputTag(tag, someinfo string) error {
 	}
 }
 
-// ConverterParams.
+// ConverterParams carries parsed input/output modifications used to build Converter.
 type ConverterParams struct {
 	InputModification  *Modification
 	OutputModification *Modification
 }
 
+// NewConverterParams reads config file and returns params for specified input/output blocks.
+// Config path must end with JsonExtension.
 func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
 	if !strings.Contains(cfgPath, JsonExtension) {
 		return nil, NewError(ErrInvalidJsonExtension, true, fmt.Sprintf("path %s", cfgPath))
@@ -50,7 +52,7 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 	}, nil
 }
 
-// IndetifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg.
+// IndetifyMsg detects message type using Types of input modification and actual parsed tags.
 func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) {
 	MSG, err := ConvertToMsg(p, msg)
 	if err != nil {
@@ -65,7 +67,7 @@ func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) {
 	return msgType, nil
 }
 
-// identifyMsg indetify by output modification (field: Types) and compare it with Tags in Msg.
+// identifyMsg compares actual tags with configured Types.
 func identifyMsg(msg *Msg, modification *Modification) (string, bool) {
 	actualTags := make([]string, 0, len(msg.Tags))
 	for t := range msg.Tags {
@@ -86,7 +88,7 @@ func identifyMsg(msg *Msg, modification *Modification) (string, bool) {
 	return "", false
 }
 
-// ConvertToMSG c return MSG model for get fields data specified in output 'linked_fields'.
+// ConvertToMsg returns parsed message into Msg model using input modification separators.
 func ConvertToMsg(p *ConverterParams, fullMsg []byte) (*Msg, error) {
 	tags := make(map[TagName]SliceFields)
 

@@ -33,6 +33,30 @@ func TestReadJSONConfigBlock(t *testing.T) {
 	}
 }
 
+func TestModificationValidate(t *testing.T) {
+	mod := &hl7converter.Modification{
+		ComponentSeparator:    "^",
+		ComponentArrSeparator: " ",
+		FieldSeparator:        "|",
+		LineSeparator:         "\n",
+		TagsInfo: hl7converter.TagsInfo{
+			Positions: map[string]string{"1": "H"},
+			Tags: map[string]hl7converter.Tag{
+				"H": {
+					Linked:       "MSH",
+					FieldsNumber: 1,
+					Tempalate:    "H",
+				},
+			},
+		},
+	}
+
+	assert.NoError(t, mod.Validate())
+
+	mod.TagsInfo.Positions["bad"] = "MSH"
+	assert.Error(t, mod.Validate())
+}
+
 func TestConverterTempalateParse(t *testing.T) {
 	t.Parallel()
 
@@ -43,14 +67,14 @@ func TestConverterTempalateParse(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "Ok - full line",
-			input:   "1.1^<H-2>^MINDRAY",
-			output:  []int{1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1},
+			name:   "Ok - full line",
+			input:  "1.1^<H-2>^MINDRAY",
+			output: []int{1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1},
 		},
 		{
-			name:    "Ok - just link",
-			input:   "<H-2>",
-			output:  []int{0, 0, 0, 0, 0},
+			name:   "Ok - just link",
+			input:  "<H-2>",
+			output: []int{0, 0, 0, 0, 0},
 		},
 		{
 			name:    "Error - link without end char",
