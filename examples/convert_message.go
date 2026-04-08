@@ -20,7 +20,7 @@ func run() error {
 		return err
 	}
 
-	configPath := filepath.Join(workDir, hl7converter.CfgJSON)
+	configPath := filepath.Join(workDir, "examples", "config.json")
 
 	convParams, err := hl7converter.NewConverterParams(configPath, "astm_hbl", "mindray_hbl")
 	if err != nil {

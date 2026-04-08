@@ -1,10 +1,10 @@
 package hl7converter_test
 
 import (
-	"testing"
 	"path/filepath"
+	"testing"
 
-    hl7converter "github.com/singl3focus/hl7-converter/v2"
+	hl7converter "github.com/singl3focus/hl7-converter/v2"
 )
 
 func Convert(withPositions bool) error {
@@ -14,10 +14,10 @@ func Convert(withPositions bool) error {
 			"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
 			"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
 			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n")
-	
-		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
-		
-		configInputBlockType = "astm_hbl"
+
+		configPath = filepath.Join(workDir, "examples", testConfigJSON)
+
+		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
 	)
 
@@ -39,7 +39,7 @@ func Convert(withPositions bool) error {
 	if _, err = c.Convert(inputMsgHBL); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -65,7 +65,7 @@ func BenchmarkConvert(b *testing.B) {
 
 func BenchmarkReadJSONConfig(b *testing.B) {
 	var (
-		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath = filepath.Join(workDir, "examples", testConfigJSON)
 
 		testModification = "astm_hbl"
 	)

@@ -1,0 +1,10 @@
+goos: windows
+goarch: amd64
+pkg: github.com/singl3focus/hl7-converter/v2
+cpu: AMD Ryzen 5 5600H with Radeon Graphics         
+BenchmarkConvert/convert_with_positions-12         	    1177	   1038881 ns/op	  426892 B/op	    5771 allocs/op
+BenchmarkConvert/convert_without_positions-12      	    1150	   1028413 ns/op	  431400 B/op	    5779 allocs/op
+BenchmarkReadJSONConfig-12                         	    2608	    438960 ns/op	  111637 B/op	    1830 allocs/op
+PASS
+ok  	github.com/singl3focus/hl7-converter/v2	3.956s
+?   	github.com/singl3focus/hl7-converter/v2/examples	[no test files]

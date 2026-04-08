@@ -13,7 +13,7 @@ const CR = "\r"
 
 func TestConverterParseInput(t *testing.T) {
 	var (
-		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath            = filepath.Join(workDir, "examples", testConfigJSON)
 		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
 	)
@@ -58,7 +58,7 @@ func TestConvertRow(t *testing.T) {
 	// t.Parallel() // TODO: uncommit after pointerIndx will be internal field of Converter
 
 	var (
-		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath            = filepath.Join(workDir, "examples", testConfigJSON)
 		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
 	)
@@ -117,7 +117,7 @@ func TestConvertMultiRowsWithManipulations(t *testing.T) {
 	// t.Parallel() // TODO: uncommit after pointerIndx will be internal field of Converter
 
 	var (
-		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath            = filepath.Join(workDir, "examples", testConfigJSON)
 		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
 
@@ -219,7 +219,7 @@ func TestConvertMultiRowsWithManipulations(t *testing.T) {
 
 func FuzzConvert(f *testing.F) {
 	var (
-		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath            = filepath.Join(workDir, "examples", testConfigJSON)
 		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
 	)
@@ -257,7 +257,7 @@ func TestTagOptions(t *testing.T) {}
 
 func TestConverterParseMsg(t *testing.T) {
 	var (
-		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath            = filepath.Join(workDir, "examples", testConfigJSON)
 		configInputBlockType  = "mindray_hbl"
 		configOutputBlockType = "astm_hbl"
 	)

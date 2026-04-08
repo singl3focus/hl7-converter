@@ -1,0 +1,21 @@
+version: 2
+
+project_name: hl7-converter
+
+release:
+  github:
+    owner: singl3focus
+    name: hl7-converter
+
+builds:
+  - skip: true
+
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  use: git
