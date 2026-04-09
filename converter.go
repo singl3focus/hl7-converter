@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -58,7 +57,7 @@ func NewErrOutputTagNotFound(tag string) error {
 func NewErrUndefinedOption(option, tag string) error {
 	return &Error{
 		Err:            ErrUndefinedOption,
-		AdditionalInfo: fmt.Sprintf("option %s tag %s, avaliable %+v", option, tag, mapOfOptions),
+		AdditionalInfo: fmt.Sprintf("option %s tag %s, available %s", option, tag, supportedOptionsSummary()),
 	}
 }
 
@@ -126,7 +125,7 @@ func NewErrWrongComponentLink(link string, compPos, compCount int, inputTag stri
 }
 
 // Converter transforms input message according to config modifications.
-// Not goroutine-safe: do not share a Converter across concurrent goroutines without external sync.
+// A single Converter instance is safe to reuse across concurrent Convert calls.
 type Converter struct {
 	// Data parsed from config.
 	// Goal: find metadata(position, default_value, components_number, linked and data about Tags, Separators)
@@ -136,14 +135,8 @@ type Converter struct {
 	// For effective split by rows of input message with help "bufio.Scanner"
 	LineSplit bufio.SplitFunc
 
-	// Convertred structure of input message for fast find a needed field by tag
-	MsgSource *Msg
-
 	UsingPositions bool
 	UsingAliases   bool
-
-	// Pointer to Tag Index in the MSG (for rows with same tags)
-	pointerIndx int
 }
 
 // OptionFunc configures Converter construction.
@@ -170,11 +163,6 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 		Input:     p.InputModification,
 		Output:    p.OutputModification,
 		LineSplit: GetCustomSplit(p.InputModification.LineSeparator),
-		MsgSource: &Msg{
-			Tags: make(map[TagName]SliceFields),
-		},
-
-		pointerIndx: defaultValuePointerIndx,
 	}
 
 	for _, opt := range opts {
@@ -184,18 +172,42 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 	return converter, nil
 }
 
-var (
-	defaultValuePointerIndx = 0
-)
-
-// TODO: add opporunity of parallel using converter (be careful with pointerIndx)
-
-func (c *Converter) resetPointerIndx() {
-	c.pointerIndx = defaultValuePointerIndx
+type convertCallState struct {
+	msgSource      *Msg
+	tagPointerByIn map[string]int
+	currentIndex   int
+	outputTagCount map[string]int
 }
 
-func (c *Converter) resetState() {
-	c.resetPointerIndx()
+func newConvertCallState(tags map[TagName]SliceFields) *convertCallState {
+	return &convertCallState{
+		msgSource:      &Msg{Tags: tags},
+		tagPointerByIn: make(map[string]int),
+		outputTagCount: make(map[string]int),
+	}
+}
+
+func (s *convertCallState) nextInputIndex(tag string) int {
+	idx := s.tagPointerByIn[tag]
+	s.tagPointerByIn[tag] = idx + 1
+
+	return idx
+}
+
+func (s *convertCallState) countForOutputTag(outputTag string, output *Modification) int {
+	if count, ok := s.outputTagCount[outputTag]; ok {
+		return count
+	}
+
+	linkedTag := output.TagsInfo.Tags[outputTag].Linked
+	count := 1
+	if linkedRows, ok := s.msgSource.Tags[TagName(linkedTag)]; ok && len(linkedRows) > 0 {
+		count = len(linkedRows)
+	}
+
+	s.outputTagCount[outputTag] = count
+
+	return count
 }
 
 /*_______________________________________[PARSE MSG AND EXECUTE OPRIONS SPECIFIED IN config]_______________________________________*/
@@ -236,7 +248,7 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
 			return nil, NewErrUndefinedInputTag(tag, "ParseMsg func")
 		}
 
-		tempTag, tempFields, err := c.handleOptions(tag, fields) // [TODO] UPGRADE OPTIONS
+		tempTag, tempFields, err := c.handleOptions(tag, fields)
 		if err != nil {
 			return nil, err
 		}
@@ -259,24 +271,9 @@ func (c *Converter) ParseMsg(fullMsg []byte) (map[TagName]SliceFields, error) {
 
 // handleOptions
 func (c *Converter) handleOptions(tag string, fields []string) (string, []string, error) {
-	options := c.Input.TagsInfo.Tags[tag].Options
-
-	newFields := make([]string, len(fields))
-	copy(newFields, fields)
-
-	for _, option := range options {
-		switch option {
-		case "autofill":
-			// [EXAMPLE]: FN - 31 (1 - Tag), len(fields) - 28. That we need add 2 empty fields
-
-			diff := (c.Input.TagsInfo.Tags[tag].FieldsNumber - 1) - len(fields)
-
-			for i := 0; i < diff; i++ { // [DEV] not use {for range diff} in order to easy support win7 version
-				newFields = append(newFields, "")
-			}
-		default:
-			return tag, newFields, NewErrUndefinedOption(option, tag)
-		}
+	newFields, err := applyTagOptions(tag, fields, c.Input.TagsInfo.Tags[tag])
+	if err != nil {
+		return tag, nil, err
 	}
 
 	return tag, newFields, nil
@@ -285,7 +282,7 @@ func (c *Converter) handleOptions(tag string, fields []string) (string, []string
 /*_______________________________________[GENERAL CONVERT]_______________________________________*/
 
 // Convert executes conversion from input message to Result according to Output modification.
-// Not goroutine-safe; do not call concurrently on the same Converter.
+// One Converter instance may be used by multiple goroutines concurrently.
 func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -297,21 +294,24 @@ func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
 	if err != nil {
 		return nil, err
 	}
-	c.MsgSource.Tags = tags
-
-	c.resetState()
+	state := newConvertCallState(tags)
 
 	if c.UsingPositions {
-		result, err = c.convertWithPositions()
+		result, err = c.convertWithPositions(state)
 	} else {
-		result, err = c.convertByInput(fullMsg)
+		result, err = c.convertByInput(fullMsg, state)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if c.UsingAliases {
-		if err = result.ApplyAliases(c.Output.Aliases); err != nil {
+		aliases := make(Aliases, len(c.Output.Aliases))
+		for name, link := range c.Output.Aliases {
+			aliases[name] = link
+		}
+
+		if err = result.ApplyAliases(aliases); err != nil {
 			return nil, err
 		}
 	}
@@ -319,11 +319,7 @@ func (c *Converter) Convert(fullMsg []byte) (result *Result, err error) {
 	return result, err
 }
 
-func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
-	defer c.resetPointerIndx()
-
-	tagPointerPositions := make(map[string]int) // Tag - Position
-
+func (c *Converter) convertByInput(fullMsg []byte, state *convertCallState) (*Result, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))
 	scanner.Split(c.LineSplit)
 
@@ -352,14 +348,9 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 			return nil, NewErrOutputTagNotFound(inputTag)
 		}
 
-		if _, ok := tagPointerPositions[inputTag]; !ok {
-			tagPointerPositions[inputTag] = 0 // start index
-		} else {
-			tagPointerPositions[inputTag]++
-		}
-		c.pointerIndx = tagPointerPositions[inputTag] // * DANGER: [TENDER SPOT]
+		state.currentIndex = state.nextInputIndex(inputTag)
 
-		row, err := c.convertTag(outputTag, &outputTagInfo)
+		row, err := c.convertTag(state, outputTag, &outputTagInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -367,33 +358,16 @@ func (c *Converter) convertByInput(fullMsg []byte) (*Result, error) {
 		rows = append(rows, NewRow(c.Output.FieldSeparator, row))
 	}
 
-	// c.resetPointerIndx() // TODO: check it, how about multiple msgs
-
 	return NewResult(c.Output.LineSeparator, rows), nil
 }
 
 // convertWithPositions generates output rows strictly by Output.TagsInfo.Positions.
-// Uses tag.Count to iterate through matching input tags.
-func (c *Converter) convertWithPositions() (*Result, error) {
+func (c *Converter) convertWithPositions(state *convertCallState) (*Result, error) {
 	orderedTags, err := c.Output.OrderedPositionTags()
 	if err != nil {
 		return nil, err
 	}
 
-	// set output count of tags
-	for _, outputTag := range orderedTags {
-		tag := c.Output.TagsInfo.Tags[outputTag]
-
-		if s, ok := c.MsgSource.Tags[TagName(c.Output.TagsInfo.Tags[outputTag].Linked)]; !ok {
-			tag.Count = 1
-		} else {
-			tag.Count = len(s)
-		}
-
-		c.Output.TagsInfo.Tags[outputTag] = tag
-	}
-
-	// get result
 	rows := make([]*Row, 0, 1)
 	for _, tag := range orderedTags {
 		TagInfo, ok := c.Output.TagsInfo.Tags[tag]
@@ -401,18 +375,16 @@ func (c *Converter) convertWithPositions() (*Result, error) {
 			return nil, NewErrUndefinedPositionTag(tag)
 		}
 
-		for i := 0; i < TagInfo.Count; i++ {
-			c.pointerIndx = i // * DANGER: [TENDER SPOT]
+		for i := 0; i < state.countForOutputTag(tag, c.Output); i++ {
+			state.currentIndex = i
 
-			row, err := c.convertTag(tag, &TagInfo)
+			row, err := c.convertTag(state, tag, &TagInfo)
 			if err != nil {
 				return nil, err
 			}
 
 			rows = append(rows, NewRow(c.Output.FieldSeparator, row))
 		}
-
-		c.resetPointerIndx() // clear pointer indx for next tag
 	}
 
 	return NewResult(c.Output.LineSeparator, rows), nil
@@ -421,7 +393,7 @@ func (c *Converter) convertWithPositions() (*Result, error) {
 /*_______________________________________[CONVERT SPECIFIED TAG]_______________________________________*/
 
 // convertTag
-func (c *Converter) convertTag(outputTag string, outputTagInfo *Tag) ([]*Field, error) {
+func (c *Converter) convertTag(state *convertCallState, outputTag string, outputTagInfo *Tag) ([]*Field, error) {
 	row := strings.Split(outputTagInfo.Tempalate, c.Output.FieldSeparator)
 
 	if outputTagInfo.FieldsNumber != ignoredFieldsNumber {
@@ -430,7 +402,7 @@ func (c *Converter) convertTag(outputTag string, outputTagInfo *Tag) ([]*Field, 
 		}
 	}
 
-	outputLine, err := c.assembleOutRow(outputTagInfo, row)
+	outputLine, err := c.assembleOutRow(state, outputTagInfo, row)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +411,7 @@ func (c *Converter) convertTag(outputTag string, outputTagInfo *Tag) ([]*Field, 
 }
 
 // assembleOutRow creates out line and fills it. Also inserts component separators in fields with components.
-func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, error) {
+func (c *Converter) assembleOutRow(state *convertCallState, inTagInfo *Tag, rowData []string) ([]*Field, error) {
 	line := make([]*Field, inTagInfo.FieldsNumber) // temp slice was initially filled by default value:""
 	for i := range line {
 		line[i] = &Field{} // Init empty values for line
@@ -465,7 +437,7 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 				return nil, err
 			}
 
-			value, err := c.getFieldValue(mask, fieldBlocks[0])
+			value, err := c.getFieldValue(state, mask, fieldBlocks[0])
 			if err != nil {
 				return nil, err
 			}
@@ -478,7 +450,7 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 					return nil, err
 				}
 
-				value, err := c.getFieldValue(mask, fieldBlocks[0])
+				value, err := c.getFieldValue(state, mask, fieldBlocks[0])
 				if err != nil {
 					return nil, err
 				}
@@ -501,7 +473,7 @@ func (c *Converter) assembleOutRow(inTagInfo *Tag, rowData []string) ([]*Field, 
 }
 
 // getFieldValue is distributing of fields by linked fields number
-func (c *Converter) getFieldValue(mask []int, str string) (string, error) {
+func (c *Converter) getFieldValue(state *convertCallState, mask []int, str string) (string, error) {
 	var builder strings.Builder
 
 	for i := 0; i < len(str); i++ {
@@ -526,7 +498,7 @@ func (c *Converter) getFieldValue(mask []int, str string) (string, error) {
 				return "", NewErrInvalidLink(str)
 			}
 
-			value, err := c.getValueFromMSGbyLink(link)
+			value, err := c.getValueFromMSGbyLink(state, link)
 			if err != nil {
 				return "", err
 			}
@@ -547,42 +519,40 @@ func (c *Converter) getDefaultFieldValue(str string) (string, error) {
 	return str, nil
 }
 
-func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
+func (c *Converter) getValueFromMSGbyLink(state *convertCallState, link string) (string, error) {
 	var value string
 
-	elems := strings.Split(link, linkToField) // parse: Tag - Position
-	if len(elems) != 2 {
-		return "", NewErrInvalidLink(link)
-	}
-
-	matchingTag, pos := elems[0], elems[1]
-	if matchingTag == "" || pos == "" {
-		return "", NewErrInvalidLinkElems(link)
-	}
-
-	inTagInfo, ok := c.MsgSource.Tags[TagName(matchingTag)]
-	if !ok {
-		return "", NewErrUndefinedInputTag(matchingTag, link)
-	}
-
-	if c.pointerIndx > (len(inTagInfo) - 1) { // countOfInputSameTagRows
-		return "", NewErrTooBigIndex(c.pointerIndx, len(inTagInfo)-1)
-	}
-
-	position, err := strconv.ParseFloat(pos, 64)
+	ref, err := parseLinkRef(link)
 	if err != nil {
 		return "", err
 	}
 
-	// [NOTE]: Be carefull with indexes
-	differenceIndexes := 2
+	inTagInfo, ok := state.msgSource.Tags[TagName(ref.Tag)]
+	if !ok {
+		return "", NewErrUndefinedInputTag(ref.Tag, link)
+	}
 
-	if isInt(position) {
-		value = inTagInfo[c.pointerIndx][int(position)-differenceIndexes] // example: link(MSH-2), (inTagInfo - MSH: [[A, B, C]]),
+	if state.currentIndex > (len(inTagInfo) - 1) {
+		return "", NewErrTooBigIndex(state.currentIndex, len(inTagInfo)-1)
+	}
+
+	fieldIndex, err := fieldIndexFromPosition(ref.Raw, ref.PositionValue)
+	if err != nil {
+		return "", err
+	}
+	if fieldIndex < 0 || fieldIndex >= len(inTagInfo[state.currentIndex]) {
+		return "", NewErrInvalidLink(link)
+	}
+
+	if isInt(ref.PositionValue) {
+		value = inTagInfo[state.currentIndex][fieldIndex]
 	} else {
-		fieldPosIndx, componentPosIndx := int(position)-differenceIndexes, getTenth(position)-1
+		componentPosIndx, err := componentIndexFromPosition(ref.Raw, ref.PositionValue)
+		if err != nil {
+			return "", err
+		}
 
-		fieldValue := inTagInfo[c.pointerIndx][fieldPosIndx]
+		fieldValue := inTagInfo[state.currentIndex][fieldIndex]
 
 		components := strings.Split(fieldValue, c.Input.ComponentSeparator)
 		if len(components) == 1 {
@@ -590,7 +560,7 @@ func (c *Converter) getValueFromMSGbyLink(link string) (string, error) {
 		}
 
 		if componentPosIndx > (len(components) - 1) {
-			return "", NewErrWrongComponentLink(link, componentPosIndx+1, len(components), matchingTag)
+			return "", NewErrWrongComponentLink(link, componentPosIndx+1, len(components), ref.Tag)
 		}
 
 		value = components[componentPosIndx]

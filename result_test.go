@@ -1,80 +1,56 @@
 package hl7converter_test
 
 import (
-	"reflect"
-	"strings"
 	"testing"
 
 	hl7converter "github.com/singl3focus/hl7-converter/v2"
 	"github.com/stretchr/testify/assert"
 )
 
+func TestFieldComponentsAndArray(t *testing.T) {
+	t.Parallel()
 
-func TestNewField(t *testing.T) {
-    var (
-        componentSep    = "^"
-        componentArrSep = "/"
-    )
+	t.Run("components flatten array separators and reset after change", func(t *testing.T) {
+		t.Parallel()
 
-    tests := []struct {
-        name           string
-        fieldValue     string
-        wantComponents hl7converter.Components
-        wantArray      []*hl7converter.Field
-    }{
-        {
-            name:       "Ok",
-            fieldValue: "sireAstmCom^1^P/LIS02^20241021",
-            wantComponents: hl7converter.Components{"sireAstmCom", "1", "P", "LIS02", "20241021"},
-            wantArray: []*hl7converter.Field{
-                {
-                    Value: "sireAstmCom^1^P",
-                },
-                {
-                    Value: "LIS02^20241021",
-                },
-            },
-        },
-    }
+		field := hl7converter.NewField("sireAstmCom^1^P/LIS02^20241021", "^", "/")
 
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            t.Parallel()
+		assert.Equal(
+			t,
+			hl7converter.Components{"sireAstmCom", "1", "P", "LIS02", "20241021"},
+			field.Components(),
+		)
+		assert.Equal(t, field.Components(), field.Components())
 
-            res := hl7converter.NewField(tt.fieldValue, componentSep, componentArrSep)
+		field.ChangeValue("new^value")
+		assert.Equal(t, hl7converter.Components{"new", "value"}, field.Components())
+	})
 
-            // --- Components check ---
-            components := res.Components()
-            assert.Equal(t, tt.wantComponents, components)
+	t.Run("array returns split fields and resets after change", func(t *testing.T) {
+		t.Parallel()
 
-			// --- Array check ---
-            array := res.Array()
-            if len(array) != len(tt.wantArray) {
-                t.Fatalf("array length mismatch: got %d, want %d", len(array), len(tt.wantArray))
-            }
+		field := hl7converter.NewField("left^1/right^2", "^", "/")
 
-			// --- Additional components check ---
-			repeatedComponents := res.Components() 
-			assert.Equal(t, components, repeatedComponents)
+		array := field.Array()
+		if assert.Len(t, array, 2) {
+			assert.Equal(t, "left^1", array[0].Value)
+			assert.Equal(t, hl7converter.Components{"left", "1"}, array[0].Components())
+			assert.Equal(t, "right^2", array[1].Value)
+			assert.Equal(t, hl7converter.Components{"right", "2"}, array[1].Components())
+		}
 
-			res.ChangeValue("new^value")
+		assert.Equal(t, array, field.Array())
 
-			componentsAfterChange := res.Components()
-			newComponents := hl7converter.Components{"new", "value"}
-			assert.Equal(t, newComponents, componentsAfterChange)
+		field.ChangeValue("single")
+		assert.Empty(t, field.Array())
+	})
 
-			// --- Array fields check---
-            for i, field := range array {
-                if field.Value != tt.wantArray[i].Value {
-                    t.Errorf("Array[%d].Value mismatch: got %q, want %q", i, field.Value, tt.wantArray[i].Value)
-                }
+	t.Run("array without separator stays empty but components still work", func(t *testing.T) {
+		t.Parallel()
 
-                components := field.Components()
-                expectedComponents := hl7converter.Components(strings.Split(tt.wantArray[i].Value, componentSep))
-                if !reflect.DeepEqual(components, expectedComponents) {
-                    t.Errorf("Array[%d].Components mismatch:\ngot: %v\nwant: %v", i, components, expectedComponents)
-                }
-            }
-        })
-    }
+		field := hl7converter.NewField("A^B^C", "^", "/")
+
+		assert.Empty(t, field.Array())
+		assert.Equal(t, hl7converter.Components{"A", "B", "C"}, field.Components())
+	})
 }
