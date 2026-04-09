@@ -1,28 +1,46 @@
-﻿<p align="center">
-<a href="https://github.com/singl3focus/hl7-converter/actions/workflows/go.yml"><img src="https://github.com/singl3focus/hl7-converter/actions/workflows/go.yml/badge.svg" alt="CI"></a> <img src="https://img.shields.io/badge/made_by-singl3focus-blue" alt="Made by singl3focus"> <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat" alt="PRs welcome">
+<p align="center">
+<a href="https://github.com/singl3focus/hl7-converter/actions/workflows/go.yml"><img src="https://github.com/singl3focus/hl7-converter/actions/workflows/go.yml/badge.svg" alt="CI"></a>
+<img src="https://img.shields.io/badge/made_by-singl3focus-blue" alt="Made by singl3focus">
+<img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat" alt="PRs welcome">
 </p>
 
 # HL7 Converter
 
-Go toolkit for converting HL7/ASTM-style lab messages by declarative JSON mappings. Suitable for LIS gateways, ETL pipelines, or integration bridges.
+`hl7-converter` is a config-driven Go toolkit for transforming HL7, ASTM, and other row-based lab messages with declarative JSON mappings.
 
-**Highlights**
-- Declarative mappings in JSON (validated by schema + runtime checks)
-- JS post-processing hook on the Result (Otto)
-- Examples, tests, and benchmarks included
+It is built for teams that need a small, embeddable mapping engine inside LIS bridges, ETL adapters, middleware services, or device integrations, without committing to a heavyweight integration platform.
 
-## What it is
-HL7 Converter maps inbound laboratory/clinical messages to outbound formats using JSON-defined modifications. You describe separators, tag ordering, templates, and aliases; the library parses input, applies templates/links, and produces an output message. No custom Go code is required for each mapping—config drives the transformation.
+## What Problem It Solves
 
-## When to use
-- Building LIS connectors or vendor-to-vendor lab bridges (HL7 ORU/OML, ASTM devices, proprietary row-based feeds).
-- ETL pipelines where upstream produces row-delimited records and downstream expects HL7-like layout.
-- Rapid prototyping of device integrations without modifying business code—swap configs to add a new mapping.
-- Post-processing with small JS snippets to adjust payloads dynamically.
+Lab and device integrations usually fail in the same place: the message structure is close to HL7, but never close enough.
 
-**Compatibility**: ASCII messages only. Uses SemVer; v1+ promises backward-compatible API.
+One analyzer emits ASTM-like rows, another vendor expects HL7-ish segments, and the integration layer ends up full of one-off string parsing code. That code is hard to review, hard to test, and expensive to change when a new device or customer mapping appears.
 
-## Quick Start
+`hl7-converter` moves that logic into JSON configuration:
+
+- define separators and row structure once
+- map input tags to output tags
+- describe field templates with links like `<TAG-3>` or `<TAG-3.1>`
+- add aliases for downstream routing or logging
+- optionally post-process the converted result with trusted JavaScript
+
+## When To Use It
+
+- You need a small Go library, not a full integration server.
+- Message transformation rules should live in config instead of hand-written code.
+- The source and target formats are row-oriented and field-position driven.
+- You need to embed conversion into an existing Go service or adapter.
+- You want repeatable test coverage around mappings and templates.
+
+## When Not To Use It
+
+- You need a visual integration designer, queues, retries, persistence, or orchestration.
+- Your mappings require deep business workflows rather than deterministic field transformation.
+- Your payloads are not fundamentally row/tag based.
+- You need sandboxed user scripting. JavaScript hooks here are trusted-code only.
+
+## 30-Second Quick Start
+
 ```bash
 go get github.com/singl3focus/hl7-converter/v2@latest
 ```
@@ -31,97 +49,227 @@ go get github.com/singl3focus/hl7-converter/v2@latest
 package main
 
 import (
-    "log"
+	"log"
 
-    hl7converter "github.com/singl3focus/hl7-converter/v2"
+	hl7converter "github.com/singl3focus/hl7-converter/v2"
 )
 
 func main() {
-    cfgPath := "./path/to/your/config.json"
+	params, err := hl7converter.NewConverterParams("./examples/config.json", "astm_hbl", "mindray_hbl")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    params, err := hl7converter.NewConverterParams(cfgPath, "astm_hbl", "mindray_hbl")
-    if err != nil {
-        log.Fatal(err)
-    }
+	converter, err := hl7converter.NewConverter(
+		params,
+		hl7converter.WithUsingPositions(),
+		hl7converter.WithUsingAliases(),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    conv, err := hl7converter.NewConverter(params, hl7converter.WithUsingPositions(), hl7converter.WithUsingAliases())
-    if err != nil {
-        log.Fatal(err)
-    }
+	input := []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
+		"P|1||||^||||||||||||||||||||||||||||\n" +
+		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
+		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
+		"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||")
 
-    input := []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\nP|1||||^||||||||||||||||||||||||||||\nO|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\nR|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\nR|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\nL|1|N")
+	result, err := converter.Convert(input)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-    msgType, err := hl7converter.IndetifyMsg(params, input)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    result, err := conv.Convert(input)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    _ = msgType // use message type for routing if needed
-    log.Print(result.String())
+	log.Print(result.String())
 }
 ```
 
-Create the JSON mapping file in your project and pass its path to `NewConverterParams`. A repository sample lives in `examples/config.json`.
+Repository sample config: `examples/config.json`.
 
-## Stable API (v1)
-- Construction: `NewConverterParams`, `NewConverter` (options: `WithUsingPositions`, `WithUsingAliases`).
-- Execution: `Converter.Convert`, `Converter.ParseMsg`, `Converter.ParseInput`.
-- Types: `Result` (+ `UseScript`, `Aliases`, `FindTag`, `SwapRows/SetRow`), `Row`, `Field`, `Msg`.
-- Config: `ReadJSONConfigBlock`, `ValidateJSONConfig`, `Modification.Validate`.
-- Utilities: `IndetifyMsg`, constant `CfgSchemaJSON`.
-API is considered stable: no breaking changes without a major version bump; thread safety is not guaranteed (see below).
+## Input / Output Example
 
-## Config Guide (schema-backed)
-- See config.schema.json; a repository sample config lives in `examples/config.json`.
-- Required per modification: component_separator, component_array_separator, field_separator, line_separator, tags_info.
-- tags_info.positions describes output order; keys are numeric strings, values are tag names present in tags_info.tags.
-- Each tag requires linked, fields_number (use -1 to skip length check), template; optional options currently supports autofill.
-- Templates support <TAG-INDEX> (float for components, e.g., <O-16.1>), defaults via ??default.
+Input:
 
-## How it works
-1) Load two modifications (input/output) from JSON.
-2) Parse input message into tags/fields using input separators and options (e.g., autofill).
-3) Convert either by scanning input tags (default) or by output positions (UsingPositions).
-4) Fill templates: literals stay, links like `<TAG-3>` pull fields, `<TAG-3.1>` pulls components, `??value` sets defaults.
-5) Optionally apply aliases to expose commonly used values.
-6) Optionally run JS over the Result to tweak payload.
+```text
+H|\^&|||sireAstmCom|||||||P|LIS02-A2|20220327
+P|1||||^||||||||||||||||||||||||||||
+O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||
+R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||
+R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||
+```
 
-## Capabilities
-- HL7/ASTM-style row parsing with custom separators.
-- Positional or input-driven generation of output rows.
-- Component addressing with float-style indexes for components.
-- Aliases to surface key values for routing or logging.
-- JS post-processing (trusted code) on the full Result object.
-- JSON Schema validation plus runtime validation for templates and options.
+Output:
+
+```text
+MSH|^\&|Manufacturer|Model|||20220327||ORU^R01||P|2.3.1||||||ASCII|
+PID||142212|||||||||||||||||||||||||||
+OBR||142212|||||||||||||URI|||||||||||||||||||||||||||
+OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|180||||||F|||||
+OBX|||Urina4^screening^tempo-analisi-minuti|tempo-analisi-minuti|90||||||F|||||
+```
+
+## Mapping Config Example
+
+```json
+{
+  "mindray_hbl": {
+    "component_separator": "^",
+    "component_array_separator": " ",
+    "field_separator": "|",
+    "line_separator": "\r",
+    "aliases": {
+      "Header": "MSH-9.2",
+      "PatientID": "PID-3",
+      "Key": "OBR-16"
+    },
+    "tags_info": {
+      "positions": {
+        "1": "MSH",
+        "2": "PID",
+        "3": "OBR",
+        "4": "OBX"
+      },
+      "tags": {
+        "MSH": {
+          "linked": "H",
+          "options": ["autofill"],
+          "fields_number": 19,
+          "template": "MSH|??^\\&|??Manufacturer|??Model|||<H-14>||??ORU^R01|<H-3>|<H-12>|??2.3.1||||||??ASCII|"
+        },
+        "PID": {
+          "linked": "P",
+          "fields_number": 30,
+          "template": "PID||<O-3>|||||||||||||||||||||||||||"
+        }
+      }
+    }
+  }
+}
+```
+
+## Architecture Overview
+
+### Conversion Flow
+
+```mermaid
+flowchart LR
+    A["Incoming message"] --> B["Parse rows by line separator"]
+    B --> C["Split fields by field separator"]
+    C --> D["Apply input tag options"]
+    D --> E["Build parsed tag map"]
+    E --> F["Resolve output templates and links"]
+    F --> G["Generate rows by input order or configured positions"]
+    G --> H["Apply aliases"]
+    H --> I["Optional JS post-processing"]
+    I --> J["Result"]
+```
+
+### Config Structure
+
+```mermaid
+flowchart TB
+    A["Config file"] --> B["Modification block"]
+    B --> C["Separators"]
+    B --> D["Types"]
+    B --> E["Aliases"]
+    B --> F["tags_info"]
+    F --> G["positions"]
+    F --> H["tags"]
+    H --> I["linked"]
+    H --> J["fields_number"]
+    H --> K["template"]
+    H --> L["options"]
+```
+
+### Conversion Modes
+
+```mermaid
+flowchart LR
+    A["Input-driven conversion"] --> B["Walk input rows in original order"]
+    B --> C["Map each seen input tag to one output row"]
+
+    D["Position-driven conversion"] --> E["Walk output positions from config"]
+    E --> F["Repeat each output tag by linked input count"]
+```
+
+## Supported Mapping Features
+
+- Custom line, field, component, and component-array separators.
+- Output generation by input order or by explicit configured positions.
+- Template links like `<TAG-3>` and component links like `<TAG-3.1>`.
+- Default literals with `??value`.
+- Aliases for extracting stable values from the converted result.
+- Trusted JavaScript post-processing via `Result.UseScript`.
+
+### Supported Options
+
+- `autofill`: append empty trailing fields while parsing an input row until it matches the tag `fields_number`.
+
+## Validation Model
+
+Validation now happens in two layers:
+
+1. `Modification.Validate()`
+   - checks required separators
+   - rejects separator conflicts
+   - validates positions keys and references
+   - validates known options
+   - validates template field count and link/default syntax
+2. `NewConverterParams()`
+   - validates the selected input/output pair together
+   - rejects output templates that reference unknown input tags
+   - rejects links that point outside known input field ranges when `fields_number` is explicit
+
+This means invalid mappings fail earlier, before conversion starts.
+
+## Concurrency And Safety
+
+- `Converter` is safe for concurrent `Convert` calls on the same instance.
+- `Result` is mutable and is not guaranteed safe for concurrent mutation.
+- JavaScript hooks are trusted-code only. There is no built-in sandbox or timeout.
+
+## Public API Snapshot
+
+- Construction: `NewConverterParams`, `NewConverter`
+- Converter options: `WithUsingPositions`, `WithUsingAliases`
+- Execution: `Convert`, `ParseMsg`, `ParseInput`, `IndetifyMsg`
+- Result helpers: `FindTag`, `ApplyAliases`, `UseScript`, `SwapRows`, `SetRow`
+- Field helpers: `Components`, `Array`, `ComponentsChecked`, `ArrayChecked`
 
 ## Limitations
-- ASCII-only payloads are expected.
-- No built-in sandbox or timeout for JS (run only trusted scripts).
-- Converter/Result are not goroutine-safe; use per-request instances or external sync.
 
-## JS scripts
-Result.UseScript exposes the Result as global msg inside an Otto VM. Scripts are trusted (no sandbox/timeout), so run only controlled code.
+- Designed for ASCII-oriented messages and simple string-based separators.
+- Template semantics are intentionally narrow: deterministic field mapping, not workflow orchestration.
+- Component validation can only be checked at runtime because input payload shape may vary per message.
+- JavaScript support is for controlled operational environments, not end-user scripting.
 
-## Thread safety
-Converter and Result are not goroutine-safe yet; do not share instances across goroutines without external synchronization.
+## Testing And Benchmarks
 
-## Testing and benchmarks
-Run `go test ./...`. Benchmarks live in benchmarks/ (see benchmarks_test.go).
+Run the full test suite:
 
-## Practical patterns
-- Routing by message type: use `IndetifyMsg` after parsing to branch by type.
-- Aliases for common fields: call `ApplyAliases` to extract values like patient ID or header keys without re-walking rows.
-- Positional outputs: enable `WithUsingPositions` when the output order is fixed and must include repeated tags with known counts.
-- Template defaults: prefer explicit defaults via `??value` to keep failures visible when data is missing.
-- JS tweaks: small, deterministic scripts (e.g., renaming a tag or swapping fields) instead of complex business logic.
+```bash
+go test ./...
+```
 
-## Benchmarking
-Benchmarks in `benchmarks/` cover realistic device-like payloads. To run: `go test -bench=. ./...`. Use them to gauge performance after changing configs or templates.
+Run with the race detector:
+
+```bash
+go test -race ./...
+```
+
+Run benchmarks:
+
+```bash
+go test -bench=. ./...
+```
+
+The repository includes:
+
+- unit tests for config validation, template parsing, conversion modes, aliases, and field helpers
+- concurrency tests for shared `Converter` usage
+- fuzz coverage for `Convert`
+- benchmarks for realistic message payloads
 
 ## License
+
 MIT

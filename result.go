@@ -391,7 +391,7 @@ func (f *Field) IsEmpty() bool {
 func (f *Field) Components() Components {
 	f.compsOnce.Do(func() {
 		a := strings.ReplaceAll(f.Value, f.arrSep, f.compsSep)
-		f.comps = strings.Split(a, f.compsSep) // TODO: Does it have correct behaviour?
+		f.comps = strings.Split(a, f.compsSep)
 	})
 
 	return f.comps
@@ -425,7 +425,6 @@ func (f *Field) ComponentsChecked() (Components, error) {
 // Ready.
 func (f *Field) Array() []*Field {
 	f.arrOnce.Do(func() {
-		// TODO: Does it have correct behaviour?
 		arrElem := strings.Split(f.Value, f.arrSep)
 
 		fieldArr := make([]*Field, 0, len(arrElem))

@@ -7,7 +7,6 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -66,6 +65,23 @@ func (m *Modification) Validate() error {
 		return fmt.Errorf("invalid separators: component=%q component_array=%q field=%q line=%q", m.ComponentSeparator, m.ComponentArrSeparator, m.FieldSeparator, m.LineSeparator)
 	}
 
+	separators := map[string]string{
+		"component_separator":       m.ComponentSeparator,
+		"component_array_separator": m.ComponentArrSeparator,
+		"field_separator":           m.FieldSeparator,
+		"line_separator":            m.LineSeparator,
+	}
+	for leftName, leftValue := range separators {
+		for rightName, rightValue := range separators {
+			if leftName >= rightName {
+				continue
+			}
+			if leftValue == rightValue {
+				return fmt.Errorf("%s conflicts with %s: %q", leftName, rightName, leftValue)
+			}
+		}
+	}
+
 	if len(m.TagsInfo.Tags) == 0 {
 		return ErrEmptyTags
 	}
@@ -93,17 +109,12 @@ func (m *Modification) Validate() error {
 			return fmt.Errorf("tag %s has invalid fields_number %d", tagName, tag.FieldsNumber)
 		}
 
-		for _, opt := range tag.Options {
-			if _, ok := mapOfOptions[opt]; !ok {
-				return NewErrUndefinedOption(opt, tagName)
-			}
+		if err := validateTagOptions(tagName, tag); err != nil {
+			return err
 		}
 
-		if tag.Tempalate != "" && tag.FieldsNumber > 0 {
-			fields := strings.Split(tag.Tempalate, m.FieldSeparator)
-			if len(fields) != tag.FieldsNumber {
-				return NewErrWrongFieldsNumber(tagName, &tag, len(fields))
-			}
+		if err := validateTemplateSyntax(tag.Tempalate, m.FieldSeparator, tag.FieldsNumber); err != nil {
+			return fmt.Errorf("tag %s template invalid: %w", tagName, err)
 		}
 	}
 
@@ -170,8 +181,6 @@ func TempalateParse(str string) ([]int, error) {
 
 	return mask, nil
 }
-
-//TODO: ADD ALIASES TO MINDTAY_HBL
 
 // ReadJSONConfigBlock checking valid config, then read config, find specified block and umarshal it to Modification.
 // Function accepts arguments: config path, name needed json block.

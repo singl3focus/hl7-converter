@@ -46,6 +46,10 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 		return nil, err
 	}
 
+	if err := validateConversionPair(inMod, outMod); err != nil {
+		return nil, err
+	}
+
 	return &ConverterParams{
 		InputModification:  inMod,
 		OutputModification: outMod,

@@ -27,9 +27,3 @@ const (
 	itSymbol = 1
 	itLink   = 0
 )
-
-var (
-	mapOfOptions = map[string]string{
-		"autofill": "automaticly adding empty fields by count of differents about fields_number and current_fields_number",
-	}
-)
