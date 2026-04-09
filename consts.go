@@ -2,19 +2,21 @@ package hl7converter
 
 // APPLICATION
 
-const (
-	CfgJSON       = "config.json"
-	CfgSchemaJSON = "config.schema.json"
-)
+// Deprecated: pass an explicit config path to NewConverterParams instead of
+// depending on a library-provided sample file location.
+const CfgJSON = "config.json"
+
+const CfgSchemaJSON = "config.schema.json"
 
 // CONVERTING PARAMS
 
-const ( 
-	ignoredIndx = 0
+const (
+	ignoredIndx         = 0
 	ignoredFieldsNumber = -1
 )
 
 // CONFIG PARAMS
+
 const (
 	linkElemSt  = "<"
 	linkElemEnd = ">"

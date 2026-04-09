@@ -11,6 +11,8 @@ import (
 
 var workDir string
 
+const testConfigJSON = "config.json"
+
 func init() {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -22,7 +24,7 @@ func init() {
 
 func TestReadJSONConfigBlock(t *testing.T) {
 	var (
-		configPath = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath = filepath.Join(workDir, "examples", testConfigJSON)
 
 		cfgInBlockName = "astm_hbl"
 	)

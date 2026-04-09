@@ -1,5 +1,5 @@
 ﻿<p align="center">
-<img src="https://img.shields.io/badge/made_by-singl3focus-blue"> <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat">
+<a href="https://github.com/singl3focus/hl7-converter/actions/workflows/go.yml"><img src="https://github.com/singl3focus/hl7-converter/actions/workflows/go.yml/badge.svg" alt="CI"></a> <img src="https://img.shields.io/badge/made_by-singl3focus-blue" alt="Made by singl3focus"> <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat" alt="PRs welcome">
 </p>
 
 # HL7 Converter
@@ -32,13 +32,12 @@ package main
 
 import (
     "log"
-    "path/filepath"
 
     hl7converter "github.com/singl3focus/hl7-converter/v2"
 )
 
 func main() {
-    cfgPath := filepath.Join(".", hl7converter.CfgJSON)
+    cfgPath := "./path/to/your/config.json"
 
     params, err := hl7converter.NewConverterParams(cfgPath, "astm_hbl", "mindray_hbl")
     if err != nil {
@@ -67,16 +66,18 @@ func main() {
 }
 ```
 
+Create the JSON mapping file in your project and pass its path to `NewConverterParams`. A repository sample lives in `examples/config.json`.
+
 ## Stable API (v1)
 - Construction: `NewConverterParams`, `NewConverter` (options: `WithUsingPositions`, `WithUsingAliases`).
 - Execution: `Converter.Convert`, `Converter.ParseMsg`, `Converter.ParseInput`.
 - Types: `Result` (+ `UseScript`, `Aliases`, `FindTag`, `SwapRows/SetRow`), `Row`, `Field`, `Msg`.
 - Config: `ReadJSONConfigBlock`, `ValidateJSONConfig`, `Modification.Validate`.
-- Utilities: `IndetifyMsg`, constants `CfgJSON/CfgSchemaJSON`.
+- Utilities: `IndetifyMsg`, constant `CfgSchemaJSON`.
 API is considered stable: no breaking changes without a major version bump; thread safety is not guaranteed (see below).
 
 ## Config Guide (schema-backed)
-- See config.schema.json; sample config in config.json.
+- See config.schema.json; a repository sample config lives in `examples/config.json`.
 - Required per modification: component_separator, component_array_separator, field_separator, line_separator, tags_info.
 - tags_info.positions describes output order; keys are numeric strings, values are tag names present in tags_info.tags.
 - Each tag requires linked, fields_number (use -1 to skip length check), template; optional options currently supports autofill.

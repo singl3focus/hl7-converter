@@ -8,22 +8,22 @@ import (
 
 func ExampleConverter() {
 	var (
-		configPath            = filepath.Join(workDir, hl7converter.CfgJSON)
+		configPath            = filepath.Join(workDir, "examples", testConfigJSON)
 		configInputBlockType  = "astm_hbl"
 		configOutputBlockType = "mindray_hbl"
 	)
 
-	getInputMessage := func () []byte  {
+	getInputMessage := func() []byte {
 		return []byte("H|\\^&|||sireAstmCom|||||||P|LIS02-A2|20220327\n" +
-		"P|1||||^||||||||||||||||||||||||||||\n" +
-		"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
-		"C|||||||||||||||\n" +
-		"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
-		"C|||||||||||||||\n" +
-		"C|||||||||||||||\n" +
-		"C|||||||||||||||\n" +
-		"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
-		"L|1|N")
+			"P|1||||^||||||||||||||||||||||||||||\n" +
+			"O|1|142212||^^^Urina4^screening^|||||||||^||URI^^||||||||||F|||||\n" +
+			"C|||||||||||||||\n" +
+			"R|1|^^^Urina4^screening^^tempo-analisi-minuti|180|||||F|||||\n" +
+			"C|||||||||||||||\n" +
+			"C|||||||||||||||\n" +
+			"C|||||||||||||||\n" +
+			"R|2|^^^Urina4^screening^^tempo-analisi-minuti|90|||||F|||||\n" +
+			"L|1|N")
 	}
 
 	convParams, err := hl7converter.NewConverterParams(configPath, configInputBlockType, configOutputBlockType)
@@ -59,7 +59,7 @@ func ExampleConverter() {
 		}(ready)
 	case "type_3":
 		func(*hl7converter.Result) {
-			ready.Aliases() 
+			ready.Aliases()
 		}(ready)
 	}
 }
