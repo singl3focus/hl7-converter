@@ -15,7 +15,7 @@
 
 - Быстро 1–4 — выполнено.
 - Средне 1–5 — выполнено.
-- Долгосрок 1–4 — открыто, отдельный фокус ниже.
+- Долгосрок 1–3 — выполнено. Долгосрок 4 — открыт (отложен до следующего major).
 - Разбор TODO — закрыт по существенным пунктам, остаточные открытые вопросы перечислены ниже.
 
 ## Быстро (выполнено)
@@ -100,59 +100,35 @@
 
 ## Долгосрок
 
-### 1. Улучшить упаковку проекта как продукта
+### 1. Улучшить упаковку проекта как продукта — done
 
-Текущее состояние:
+Состояние:
 
-- README уже подаёт проект как config-driven mapping engine, но раздела сравнения с альтернативами нет.
+- В README добавлен раздел `Alternatives` со сравнением против Mirth/NextGen Connect, HAPI HL7v2 и FHIR-ориентированных конвертеров.
+- Позиционирование явно: config-driven row-based mapping engine for Go, embeddable внутрь LIS bridges/ETL/device integrations.
 
-Что сделать:
+### 2. Добавить CLI — done
 
-- Уточнить публичное позиционирование: config-driven ASTM/HL7 lab mapping engine for Go, подходит для LIS bridges, ETL adapters, device integrations.
-- Добавить в README раздел сравнения:
-  - где проект находится относительно Mirth/NextGen Connect.
-  - чем отличается от HAPI HL7v2.
-  - чем отличается от шаблонных FHIR-конвертеров.
+Состояние:
 
-Ожидаемый результат:
+- CLI реализован в `cmd/hl7conv` без новых внешних зависимостей (только stdlib `flag`).
+- Команды: `convert`, `identify`, `validate-config`, `version`.
+- Базовые unit-тесты CLI в `cmd/hl7conv/main_test.go` (смок-покрытие convert/validate-config + отказы на неверных входах).
+- `.goreleaser.yaml` собирает `hl7conv` под linux/darwin/windows × amd64/arm64, архивы `tar.gz` и `zip` (для Windows), version пробрасывается через `-ldflags -X main.version=...`.
+- В README добавлен раздел `CLI` с примерами.
 
-- Посетитель поймёт не только что делает проект, но и почему он вообще существует.
+### 3. Доверительные сигналы репозитория — done (базовый слой)
 
-### 2. Добавить CLI
+Состояние:
 
-Почему важно:
+- Добавлен `CONTRIBUTING.md` с setup, правилами вклада, PR-флоу и релизным процессом.
+- Добавлены issue templates в `.github/ISSUE_TEMPLATE/`: bug, feature, question + `config.yml` с `blank_issues_enabled: false`.
+- Выбрана стратегия changelog: GoReleaser `changelog.use: git` (собирает release notes из git лога).
 
-- CLI — самый прямой способ сделать проект легко пробуемым.
-- Многим потенциальным пользователям не захочется писать Go-код ради первой проверки.
+Не закрыто (опционально):
 
-Что сделать:
-
-- Добавить CLI в `cmd/hl7conv` или аналогичный каталог.
-- Начальный набор команд:
-  - `convert`
-  - `identify`
-  - возможно `validate-config`
-- Подключить выпуск CLI-артефактов к GoReleaser (отдельный `builds:` блок в `.goreleaser.yaml`).
-
-Ожидаемый результат:
-
-- Порог входа в проект резко снизится.
-- GitHub Releases начнут приносить реальную пользу.
-
-### 3. Доверительные сигналы репозитория
-
-Что сделать:
-
-- Добавить `CONTRIBUTING.md`.
-- Добавить issue templates (bug, feature, question) в `.github/ISSUE_TEMPLATE/`.
-- Определить стратегию changelog (например, на основе release notes GoReleaser).
-- Добавить GitHub topics через UI/API.
-- Добавить раздел roadmap в README или отдельный `ROADMAP.md`.
-- Принять формат release notes (Keep a Changelog или Conventional Commits + automated section).
-
-Ожидаемый результат:
-
-- Репозиторий выглядит как живой и поддерживаемый open source проект.
+- GitHub topics надо проставить вручную в UI репозитория (`go`, `hl7`, `astm`, `lis`, `mapping`, `cli`).
+- Отдельный `ROADMAP.md` пока не выделяется — роль roadmap-а выполняет этот файл.
 
 ### 4. Cleanup публичного API для следующего major
 
@@ -195,17 +171,13 @@
 
 1. Документировать в README поддерживаемые tag options и их семантику (закрывает «не закрытое» по Средне 4).
 2. Бенчмарк `Result.otto` и решение по ленивой инициализации (закрывает первый открытый вопрос по `result.go`).
-3. Добавить `CONTRIBUTING.md` и issue templates.
-4. Спланировать и реализовать CLI в `cmd/hl7conv` с подключением к GoReleaser.
-5. Добавить раздел сравнения с альтернативами в README.
-6. Подготовить отдельный план breaking-cleanup для следующего major release.
+3. Проставить GitHub topics в UI репозитория.
+4. Подготовить отдельный план breaking-cleanup для следующего major release (Долгосрок 4).
 
 ## Критерии завершения этого плана
 
-Базовая часть плана уже выполнена. Полностью закрытым план будет считаться, когда:
+Базовая и продуктовая часть плана уже выполнены. Полностью закрытым план будет считаться, когда:
 
-- В README задокументированы tag options и есть раздел сравнения с альтернативами.
-- Поставляется CLI-артефакт через GoReleaser.
-- В репозитории есть `CONTRIBUTING.md`, issue templates и явная стратегия changelog/release notes.
+- В README задокументированы tag options.
 - Открытые TODO в `result.go` либо закрыты, либо обоснованно отклонены.
 - Подготовлен отдельный план breaking-cleanup публичного API для следующего major.

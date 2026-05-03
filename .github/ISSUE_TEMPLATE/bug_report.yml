@@ -1,0 +1,49 @@
+name: Bug report
+description: Report unexpected conversion behaviour, validation error, or panic.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Short description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: |
+        Minimal config block(s) and input message that trigger the issue.
+        Please trim large payloads to the smallest example that still reproduces.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the full error output if any.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: hl7-converter version
+      placeholder: v2.x.y
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      placeholder: "go version go1.22.x ..."
+    validations:
+      required: true

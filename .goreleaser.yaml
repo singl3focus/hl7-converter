@@ -8,7 +8,32 @@ release:
     name: hl7-converter
 
 builds:
-  - skip: true
+  - id: hl7conv
+    main: ./cmd/hl7conv
+    binary: hl7conv
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: hl7conv
+    ids: [hl7conv]
+    name_template: "hl7conv_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
 
 source:
   enabled: true
