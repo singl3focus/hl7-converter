@@ -243,6 +243,55 @@ This means invalid mappings fail earlier, before conversion starts.
 - Component validation can only be checked at runtime because input payload shape may vary per message.
 - JavaScript support is for controlled operational environments, not end-user scripting.
 
+## CLI
+
+A minimal CLI is published with each release as `hl7conv`. It is built from `cmd/hl7conv` and uses the same library API.
+
+```text
+hl7conv <command> [flags]
+
+Commands:
+  convert         Convert a message using a config and an input/output block pair.
+  identify        Identify a message type by matching parsed tags against configured Types.
+  validate-config Validate a JSON config file and optionally a single modification block.
+  version         Print version.
+```
+
+Examples:
+
+```bash
+# convert a message read from a file, position-driven, with aliases
+hl7conv convert \
+  -config ./examples/config.json \
+  -in astm_hbl -out mindray_hbl \
+  -input ./message.txt \
+  -positions -aliases
+
+# validate config and a specific block
+hl7conv validate-config -config ./examples/config.json -block astm_hbl
+
+# identify message type
+cat ./message.txt | hl7conv identify \
+  -config ./examples/config.json \
+  -in astm_hbl -out mindray_hbl
+```
+
+Build locally:
+
+```bash
+go build -o hl7conv ./cmd/hl7conv
+```
+
+## Alternatives
+
+`hl7-converter` deliberately occupies a small slot. It is not a replacement for full integration platforms or full HL7 toolkits.
+
+- **Mirth Connect / NextGen Connect.** Full integration server with channels, queues, persistence, retries, transformers and a UI. Use it when you need an integration platform. Use `hl7-converter` when you need an embeddable mapping engine inside your own Go service.
+- **HAPI HL7v2 (Java).** Comprehensive HL7v2 parser and model with strict structures. Use it when you need full HL7v2 conformance, ACK handling, and a Java stack. Use `hl7-converter` when your reality is closer to ASTM-like or HL7-ish row formats and you want config-driven mapping in Go.
+- **FHIR-oriented converters and mappers (FHIR Mapping Language, Microsoft FHIR Converter).** Aimed at producing FHIR resources, often with rich resource semantics and bundle handling. Use them when the target is FHIR. Use `hl7-converter` when both sides are row-and-tag based and you need deterministic field mapping without leaving Go.
+
+In short: pick `hl7-converter` when the mapping is deterministic, row-based, must live in Go, and the only thing you really need is a small, testable transformation step.
+
 ## Testing And Benchmarks
 
 Run the full test suite:

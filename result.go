@@ -111,9 +111,9 @@ func (r *Result) SetRow(p int, row *Row) error {
 	return nil
 }
 
-// TODO: Add InsertRow
+// TODO(api): is InsertRow worth adding? No documented user scenario yet — keep on hold until one appears.
 
-// TODO: Add RemoveRowByIndex
+// TODO(api): is RemoveRowByIndex worth adding? Same as InsertRow — only land it when a real caller needs it.
 
 type constraint interface {
 	isAllowed()

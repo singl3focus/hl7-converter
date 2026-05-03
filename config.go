@@ -28,7 +28,8 @@ var (
 
 // Modification struct dor parsing metadata of config
 type Modification struct {
-	ComponentSeparator    string `json:"component_separator"` // TODO: validate `tags:""`
+	// Separators are validated for non-emptiness and mutual non-overlap in Modification.Validate.
+	ComponentSeparator    string `json:"component_separator"`
 	ComponentArrSeparator string `json:"component_array_separator"`
 	FieldSeparator        string `json:"field_separator"`
 	LineSeparator         string `json:"line_separator"`

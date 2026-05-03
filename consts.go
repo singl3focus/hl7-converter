@@ -3,8 +3,9 @@ package hl7converter
 // APPLICATION
 
 // Deprecated: pass an explicit config path to NewConverterParams instead of
-// depending on a library-provided sample file location.
-const CfgJSON = "config.json"
+// depending on a library-provided sample file location. The path is preserved
+// only for backward compatibility and points to the relocated sample fixture.
+const CfgJSON = "examples/config.json"
 
 const CfgSchemaJSON = "config.schema.json"
 

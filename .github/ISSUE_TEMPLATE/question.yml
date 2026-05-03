@@ -1,0 +1,21 @@
+name: Question
+description: Ask how to model a specific input/output mapping.
+title: "question: "
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Config and input snippet
+      description: Trimmed config block(s) and input message you are trying to convert.
+      render: text
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you have tried
