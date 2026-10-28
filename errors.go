@@ -52,10 +52,11 @@ func (e Error) Error() string {
 	return fmt.Sprintf("%s, %s", e.Err.Error(), e.AdditionalInfo)
 }
 
-// Is allows errors.Is to match wrapped Err.
-func (e Error) Is(target error) bool {
-	return e.Err.Error() == target.Error()
-}
+// Unwrap exposes the underlying error for errors.Is and errors.As.
+func (e Error) Unwrap() error { return e.Err }
+
+// Is preserves direct matching while respecting sentinel identity.
+func (e Error) Is(target error) bool { return errors.Is(e.Err, target) }
 
 func Assert(condition bool, format string, fields ...any) {
 	if !condition {
@@ -67,6 +68,8 @@ func Assert(condition bool, format string, fields ...any) {
 var (
 	ErrUndefinedScannerFailure = errors.New("unknown scanner failure")
 	ErrParseFailure            = errors.New("parse failure")
+	ErrAmbiguousMessageType    = errors.New("ambiguous message type")
+	ErrMessageTypeNotFound     = errors.New("message type not found")
 )
 
 // Package-level converting errors that are part of the public API.

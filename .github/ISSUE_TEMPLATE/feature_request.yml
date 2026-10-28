@@ -7,7 +7,7 @@ body:
     id: problem
     attributes:
       label: Problem
-      description: What real-world mapping scenario does this enable?
+      description: What mapping scenario does this enable? Include synthetic input and expected output; do not publish patient data.
     validations:
       required: true
   - type: textarea

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"slices"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -32,7 +32,7 @@ type ConverterParams struct {
 // NewConverterParams reads config file and returns params for specified input/output blocks.
 // Config path must end with JsonExtension.
 func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*ConverterParams, error) {
-	if !strings.Contains(cfgPath, JsonExtension) {
+	if filepath.Ext(cfgPath) != JsonExtension {
 		return nil, NewError(ErrInvalidJsonExtension, true, fmt.Sprintf("path %s", cfgPath))
 	}
 
@@ -47,7 +47,7 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 	}
 
 	if err := validateConversionPair(inMod, outMod); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
 	}
 
 	return &ConverterParams{
@@ -56,44 +56,61 @@ func NewConverterParams(cfgPath, cfgInBlockName, cfgOutBlockName string) (*Conve
 	}, nil
 }
 
-// IndetifyMsg detects message type using Types of input modification and actual parsed tags.
-func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) {
-	MSG, err := ConvertToMsg(p, msg)
+// IdentifyMsg identifies a message without changing the shared input configuration.
+func IdentifyMsg(p *ConverterParams, msg []byte) (string, error) {
+	parsed, err := ConvertToMsg(p, msg)
 	if err != nil {
 		return "", err
 	}
-
-	msgType, ok := identifyMsg(MSG, p.InputModification)
-	if !ok {
-		return "", fmt.Errorf("undefined type, msg: %v", MSG)
+	actual := make([]string, 0, len(parsed.Tags))
+	for tag := range parsed.Tags {
+		actual = append(actual, string(tag))
 	}
-
-	return msgType, nil
-}
-
-// identifyMsg compares actual tags with configured Types.
-func identifyMsg(msg *Msg, modification *Modification) (string, bool) {
-	actualTags := make([]string, 0, len(msg.Tags))
-	for t := range msg.Tags {
-		actualTags = append(actualTags, string(t))
-	}
-	sort.Strings(actualTags) // we sort in order to compare tags regardless of the positions of the tags
-
-	for TypeName, Tags := range modification.Types {
-		for _, someTags := range Tags {
-			sort.Strings(someTags)
-
-			if slices.Compare(actualTags, someTags) == 0 {
-				return TypeName, true
+	sort.Strings(actual)
+	match := ""
+	for _, name := range sortedKeys(p.InputModification.Types) {
+		for _, alternative := range p.InputModification.Types[name] {
+			tags := append([]string(nil), alternative...)
+			sort.Strings(tags)
+			if !equalStrings(actual, tags) {
+				continue
 			}
+			if match != "" && match != name {
+				return "", fmt.Errorf("%w: %q and %q", ErrAmbiguousMessageType, match, name)
+			}
+			match = name
 		}
 	}
+	if match == "" {
+		return "", ErrMessageTypeNotFound
+	}
+	return match, nil
+}
 
-	return "", false
+// IndetifyMsg is the legacy spelling of IdentifyMsg.
+// Deprecated: use IdentifyMsg.
+func IndetifyMsg(p *ConverterParams, msg []byte) (string, error) { return IdentifyMsg(p, msg) }
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // ConvertToMsg returns parsed message into Msg model using input modification separators.
 func ConvertToMsg(p *ConverterParams, fullMsg []byte) (*Msg, error) {
+	if p == nil || p.InputModification == nil {
+		return nil, fmt.Errorf("%w: nil input modification", ErrInvalidConfig)
+	}
+	if err := validateSeparators(p.InputModification); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
 	tags := make(map[TagName]SliceFields)
 
 	scanner := bufio.NewScanner(bytes.NewReader(fullMsg))

@@ -1,6 +1,7 @@
 package hl7converter_test
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -275,7 +276,18 @@ func FuzzConvert(f *testing.F) {
 			}
 		}()
 
-		_, _ = c.Convert(input)
+		result, err := c.Convert(input)
+		if errors.Is(err, hl7converter.FatalErrOfConverting) {
+			t.Fatalf("conversion recovered an internal panic: %v", err)
+		}
+		if err == nil {
+			if result == nil {
+				t.Fatal("success returned nil result")
+			}
+			if result.String() != string(result.Bytes()) {
+				t.Fatal("String and Bytes disagree")
+			}
+		}
 	})
 }
 

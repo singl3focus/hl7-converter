@@ -2,27 +2,44 @@ name: Go
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        go: ["1.22.3", "1.26.x"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+      - run: go test -count=1 ./...
+      - run: go vet ./...
+      - name: Check documented mappings
+        run: go run ./cmd/hl7conv check -fixtures ./examples/mappings/suite.json
+      - name: Race tests
+        if: matrix.os == 'ubuntu-latest' && matrix.go == '1.26.x'
+        run: go test -race -count=1 ./...
+
+  fuzz-security:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.26.x"
           cache: true
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Run tests
-        run: go test ./...
-
-      - name: Run race tests
-        run: go test -race ./...
+      - run: go test -run '^$' -fuzz '^FuzzConvert$' -fuzztime=15s -parallel=2 .
+      - run: go test -run '^$' -fuzz '^FuzzTemplateSyntax$' -fuzztime=15s -parallel=2 .
+      - run: go test -run '^$' -fuzz '^FuzzIdentityMapping$' -fuzztime=15s -parallel=2 .
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+      - run: govulncheck ./...

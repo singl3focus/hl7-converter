@@ -1,183 +1,52 @@
-# План улучшений
-
-Этот документ фиксирует практический план развития репозитория `hl7-converter`. План разбит по горизонту выполнения, чтобы можно было отдельно вести быстрые улучшения, структурную доработку и долгосрочное развитие проекта.
-
-## Цели
-
-- Повысить доверие к репозиторию как к поддерживаемому Go-пакету.
-- Сделать релизы предсказуемыми и видимыми через GitHub Releases.
-- Упростить понимание проекта только по README, без чтения кода.
-- Убрать из корня репозитория тестовые и демонстрационные артефакты.
-- Закрыть или явно разобрать существующие `TODO`.
-- Подготовить проект к более широкому использованию, а не только к локальному или внутреннему.
-
-## Статус по горизонтам
-
-- Быстро 1–4 — выполнено.
-- Средне 1–5 — выполнено.
-- Долгосрок 1–3 — выполнено. Долгосрок 4 — открыт (отложен до следующего major).
-- Разбор TODO — закрыт по существенным пунктам, остаточные открытые вопросы перечислены ниже.
-
-## Быстро (выполнено)
-
-### 1. CI и процесс релизов — done
-
-Состояние:
-
-- `.github/workflows/go.yml` запускается на `push` в `main` и на `pull_request`.
-- Тесты идут через `go test ./...` и отдельным шагом через `go test -race ./...`.
-- CI отвечает только за качество, релизная логика отделена.
-- Badge сборки присутствует в README.
-
-### 2. GoReleaser и release workflow — done
-
-Состояние:
-
-- `.goreleaser.yaml` лежит в корне.
-- `.github/workflows/release.yml` запускается на `push.tags: ['v*']`, делает checkout с полной историей, setup Go и `goreleaser release --clean`.
-- Старый `tag.yml` удалён, автоматического создания тегов нет.
-- Версионирование остаётся ручным: подготовил изменения, создал тег, запушил, получил релиз.
-
-### 3. Перенос sample config — done
-
-Состояние:
-
-- Sample-конфиг лежит в `examples/config.json`, в корне его больше нет.
-- Все пути обновлены в `config_test.go`, `converter_test.go`, `benchmarks_test.go`, `example_test.go`, `examples/convert_message.go`, `README.md`.
-- Константа `CfgJSON` помечена `Deprecated` и теперь указывает на `examples/config.json`. Используется только для обратной совместимости и не упоминается в документации как рекомендуемый путь.
-
-### 4. Уборка шума в workflow и метаданных — done
-
-Состояние:
-
-- `tag.yml` удалён.
-- В корне нет временных и демонстрационных артефактов.
-- Файл `config.sсhema.json.go` (с кириллической `с` в имени) переименован в `config.schema.json.go`.
-
-## Средне (выполнено)
-
-### 1. README — done
-
-Состояние:
-
-- README перестроен вокруг блоков: что это, какую проблему решает, когда стоит использовать, когда нет, quick start, input/output, mapping-конфиг, обзор архитектуры, ограничения, тесты и benchmark'и.
-- Старые и слабые формулировки удалены или переписаны.
-
-### 2. Схемы в README — done
-
-Состояние:
-
-- В README присутствуют Mermaid-схемы потока конвертации, структуры конфига и сравнения двух режимов работы (input-driven и position-driven).
-
-### 3. Конкурентность — done
-
-Состояние:
-
-- В `Converter` нет общего изменяемого состояния. Состояние одного вызова инкапсулировано в `convertCallState`.
-- В тестах включён `t.Parallel()` там, где это осмысленно.
-- `TestConvertConcurrentSharedConverter` запускает 32 параллельных `Convert` поверх одного `Converter` и сравнивает результаты, фиксируя goroutine safety.
-- В CI работает `go test -race ./...`.
-
-### 4. Валидация конфига и обработка options — done
-
-Состояние:
-
-- `Modification.Validate()` проверяет конфликты разделителей, корректность `fields_number`, синтаксис шаблонов и ссылок, ссылочную целостность positions → tags.
-- `validateConversionPair` проверяет валидность пары input/output: что `linked` существует и что ссылки `<TAG-N>` указывают на существующие теги и поля во входной модификации.
-- Обработка options перенесена в `optionRegistry` (`internal_helpers.go`) с явным `apply` per option и автоматическим сообщением об ошибке вида `available autofill: ...`.
-
-Не закрыто:
-
-- В README пока нет короткого раздела с перечислением поддерживаемых options и их семантикой. Кандидат на следующий маленький патч.
-
-### 5. Поведенческие тесты — done
-
-Состояние:
-
-- В `result_test.go` есть тесты на `Field.Components()`, `Field.Array()`, кэширование и сброс после `ChangeValue`.
-- В `converter_test.go` присутствуют сценарии для input-driven и positional conversion, для извлечения aliases (`TestConvertWithUsingAliasesCanReuseSameConverter`), для concurrent reuse converter и fuzz через `FuzzConvert`.
-- Комментарии-TODO в тестах либо превращены в тесты, либо удалены.
-
-## Долгосрок
-
-### 1. Улучшить упаковку проекта как продукта — done
-
-Состояние:
-
-- В README добавлен раздел `Alternatives` со сравнением против Mirth/NextGen Connect, HAPI HL7v2 и FHIR-ориентированных конвертеров.
-- Позиционирование явно: config-driven row-based mapping engine for Go, embeddable внутрь LIS bridges/ETL/device integrations.
-
-### 2. Добавить CLI — done
-
-Состояние:
-
-- CLI реализован в `cmd/hl7conv` без новых внешних зависимостей (только stdlib `flag`).
-- Команды: `convert`, `identify`, `validate-config`, `version`.
-- Базовые unit-тесты CLI в `cmd/hl7conv/main_test.go` (смок-покрытие convert/validate-config + отказы на неверных входах).
-- `.goreleaser.yaml` собирает `hl7conv` под linux/darwin/windows × amd64/arm64, архивы `tar.gz` и `zip` (для Windows), version пробрасывается через `-ldflags -X main.version=...`.
-- В README добавлен раздел `CLI` с примерами.
-
-### 3. Доверительные сигналы репозитория — done (базовый слой)
-
-Состояние:
-
-- Добавлен `CONTRIBUTING.md` с setup, правилами вклада, PR-флоу и релизным процессом.
-- Добавлены issue templates в `.github/ISSUE_TEMPLATE/`: bug, feature, question + `config.yml` с `blank_issues_enabled: false`.
-- Выбрана стратегия changelog: GoReleaser `changelog.use: git` (собирает release notes из git лога).
-
-Не закрыто (опционально):
-
-- GitHub topics надо проставить вручную в UI репозитория (`go`, `hl7`, `astm`, `lis`, `mapping`, `cli`).
-- Отдельный `ROADMAP.md` пока не выделяется — роль roadmap-а выполняет этот файл.
-
-### 4. Cleanup публичного API для следующего major
-
-Текущее состояние:
-
-- В публичном API есть legacy-опечатки и неудачные имена.
-
-Кандидаты на cleanup (только следующий major, без breaking change в текущем):
-
-- `IndetifyMsg` → `IdentifyMsg`.
-- `TempalateParse` → `TemplateParse`, поле `Tag.Tempalate` → `Tag.Template`.
-- Согласовать формулировки и имена ошибок (`unsuccesful` → `unsuccessful`, `tagSturcture` → `tagStructure`, и т.п.).
-- Убрать `CfgJSON` или превратить в файл-функцию, не строковый путь.
-- Согласовать `(*Converter, error)` сигнатуры — либо реально валидировать в `NewConverter`, либо убрать ошибку.
-
-Ожидаемый результат:
-
-- Публичный API станет аккуратнее без преждевременного breaking change.
-
-## Разбор TODO
-
-### Закрыто
-
-- `config.go` — `TODO: validate` на `ComponentSeparator`: заменено нормальным комментарием. Валидация делается в `Modification.Validate()`.
-- `config.go` — `TODO: ADD ALIASES TO MINDTAY_HBL`: устранено, aliases присутствуют в sample config.
-- `converter.go` — `TODO: move errors to origin place`: ошибки и конструкторы перенесены в `errors.go`.
-- `converter.go` — `todo: clarify ErrOutputTagNotFound`: формулировка ошибки переписана, TODO удалено.
-- `converter.go` — `TODO: add opportunity of parallel using converter`: устранено через `convertCallState`, race-тест добавлен.
-- `converter.go` — `[TODO] UPGRADE OPTIONS`: заменено на `optionRegistry`-подход.
-- `converter.go` — `TODO: check resetPointerIndx`: исчезло вместе с общим состоянием.
-- `converter_test.go` — `t.Parallel()`: включён, добавлен concurrent shared converter test.
-
-### Открытые вопросы
-
-- `result.go` — `TODO: check mem and cpu usage` на `otto.New()` в `NewResult`. Действие: сначала бенчмарки, потом ленивая инициализация или пул, без слепых правок.
-- `result.go` — `TODO: Does it have correct behaviour?`. Действие: зафиксировать ожидаемое поведение тестом и убрать вопрос.
-- `result.go` — `TODO(api): is InsertRow worth adding?` и `TODO(api): is RemoveRowByIndex worth adding?`. Действие: реализовывать только если появится задокументированный пользовательский сценарий, иначе удалить.
-
-## Рекомендуемый порядок выполнения дальше
-
-1. Документировать в README поддерживаемые tag options и их семантику (закрывает «не закрытое» по Средне 4).
-2. Бенчмарк `Result.otto` и решение по ленивой инициализации (закрывает первый открытый вопрос по `result.go`).
-3. Проставить GitHub topics в UI репозитория.
-4. Подготовить отдельный план breaking-cleanup для следующего major release (Долгосрок 4).
-
-## Критерии завершения этого плана
-
-Базовая и продуктовая часть плана уже выполнены. Полностью закрытым план будет считаться, когда:
-
-- В README задокументированы tag options.
-- Открытые TODO в `result.go` либо закрыты, либо обоснованно отклонены.
-- Подготовлен отдельный план breaking-cleanup публичного API для следующего major.
+# План развития hl7-converter
+
+Обновлено 28.10.2026. База: v2.6.0, main 9c438ad. Изменения подготовлены в ветке fix/mapping-reliability. Локальная реализация не означает публикацию релиза.
+
+## Реализовано
+
+- CI/unit/race, CLI, CONTRIBUTING, issue templates и GoReleaser уже существовали в v2.6.0.
+- Options/autofill документированы, GitHub topics выставлены. Устаревшие незакрытые пункты удалены.
+- ParseInput/input order conversion проверяют scanner.Err и не возвращают успешный неполный результат.
+- Field/component разбираются как целые числа: .10/.12 не превращаются в .1.
+- IdentifyMsg не меняет общий Types. Пересекающиеся типы дают явную ambiguity error.
+- Constructor проверяет nil params/options, модификации, связи и output counts. fields_number=-1 сохраняется для input/unused tags.
+- positions принимают канонические положительные ключи; многосимвольный separator работает в обоих режимах.
+- Error.Unwrap и sentinel identity заменили сравнение текста ошибок.
+- TemplateParse работает с байтами и не падает на Unicode; вложенные ссылки отвергаются.
+- IndetifyMsg/TempalateParse сохранены, правильные имена добавлены совместимо.
+- CLI: справка, ошибки записи, -raw, семантическая валидация всех блоков и выбранной пары.
+- check: version-1 fixtures с exact bytes, aliases, expected error code, inline/file input/output.
+- explain: статические связи output fields → input links/defaults; JSON diagnostics без payload.
+- JSON Schema встроена из одного файла через go:embed.
+- Otto создаётся при первом UseScript и сохраняет script state.
+- FuzzConvert проверяет recovered panic и result.String/Bytes; добавлен fuzz TemplateParse.
+- Синтетические examples/mappings выполняются в тестах и CI; README/GoDoc описывают numbering/repeats/limits/stdout.
+- CI разделяет compatibility Go 1.22.3 и поддерживаемую 1.26.x. Release использует поддерживаемый компилятор и проверки до GoReleaser.
+
+## Перед публикацией
+
+- Локальные проверки Go 1.22.3/1.26.10, race/vet, три fuzz-набора и security выполнены. Покрытие: library 79.6%, CLI 78.5%.
+- Review выполнен локально; независимый review перед merge остаётся полезным.
+- Windows CLI smoke и сборка всех шести targets выполнены. Кросс-компиляция не заменяет запуск на Linux/macOS.
+- Прогнать GitHub CI на ветке/PR; локальные проверки не подтверждают GitHub Actions.
+- Проверить GoReleaser packaging и build info свежего артефакта.
+- Выпустить новый minor: добавлены команды/public API. Не перезаписывать v2.6.0.
+- Новый workflow исправляет будущие сборки, но не уже скачанные Go 1.22.3 бинарники.
+
+## Следующие задачи по подтверждённым сценариям
+
+- Отдельные block/tag/field координаты в JSON diagnostics.
+- Настраиваемый предел строки при реальном input >64 KiB; сейчас явный отказ.
+- Независимые fixtures и спецификация для grouping/repeats/escaping до расширения parser layer.
+- Обновление транзитивных зависимостей отдельным изменением с проверкой minimum Go. Module-only warnings не равны доказанной достижимости.
+- Изменения absent linked rows/cross-tag repeats требуют совместимого дизайна.
+- Проверять востребованность check/explain по задачам интеграторов без обещаний роста stars/downloads.
+
+## Отложено
+
+- InsertRow/RemoveRowByIndex до конкретного caller.
+- Полный integration server, MLLP daemon, queues/persistence/retries.
+- FHIR и полная HL7/ASTM conformance без отдельного профиля.
+- Переименование Tag.Tempalate/удаление legacy API до отдельного compatibility/major плана.
+- Общий VM pool: достаточно ленивой инициализации для измеренной проблемы.
+- Отдельный сайт: сейчас развиваются библиотека, CLI и GitHub.
