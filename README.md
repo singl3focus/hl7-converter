@@ -10,6 +10,8 @@
 
 It is built for teams that need a small, embeddable mapping engine inside LIS bridges, ETL adapters, middleware services, or device integrations, without committing to a heavyweight integration platform.
 
+[API documentation](https://pkg.go.dev/github.com/singl3focus/hl7-converter/v2) · [CLI downloads](https://github.com/singl3focus/hl7-converter/releases) · [Mapping fixtures](examples/mappings/suite.json)
+
 ## What Problem It Solves
 
 Lab and device integrations usually fail in the same place: the message structure is close to HL7, but never close enough.
@@ -254,6 +256,8 @@ Commands:
   convert         Convert a message using a config and an input/output block pair.
   identify        Identify a message type by matching parsed tags against configured Types.
   validate-config Validate a JSON config file and optionally a single modification block.
+  check           Verify mapping fixtures.
+  explain         Describe mapping dependencies.
   version         Print version.
 ```
 
@@ -276,11 +280,96 @@ cat ./message.txt | hl7conv identify \
   -in astm_hbl -out mindray_hbl
 ```
 
+Install from source:
+
+```bash
+go install github.com/singl3focus/hl7-converter/v2/cmd/hl7conv@latest
+```
+
+The new check/explain commands require a release containing them. Before publication, build this checkout.
+
 Build locally:
 
 ```bash
 go build -o hl7conv ./cmd/hl7conv
 ```
+
+## Mapping Contracts
+
+Positions include the tag at position 1. In `A|one^two`, `<A-2>` selects `one^two` and `<A-2.1>` selects `one`. A suffix such as `.10` selects component 10. Template links start at field position 2; aliases may also select the tag at position 1. This row-position notation does not implement HL7's special MSH numbering.
+
+- Field/component positions are positive decimal integers. Scientific notation, empty components and component 0 are rejected.
+- `fields_number` includes the tag. Emitted output rows require a positive count and a non-empty template. Empty templates are allowed in parse-only metadata; converting such a row returns an error. `-1` is retained for input or unused tags with unconstrained counts.
+- `positions` keys must be canonical positive integers: `"1"`, `"2"`, etc.
+- Input order mode uses the next occurrence of each input tag. Position mode repeats an output tag by its linked input count. The existing one-row behavior for absent linked rows is retained; missing data links return an error. Cross-tag links use the same occurrence index and do not broadcast a singleton header.
+- Unknown input tags fail conversion. A tag with no output mapping may be parsed in positional mode when not emitted; input order conversion rejects its missing mapping.
+- Empty input produces an empty result in input order mode. Position mode evaluates configured rows and can fail on missing references.
+- Message type matching compares configured tag sets. Repetition count and order do not select the type. Alternatives shared by different type names are rejected.
+- Multi-character field separators work in both conversion modes. Separators must be non-empty and distinct; avoid overlapping strings.
+- Parsing uses the default `bufio.Scanner` token limit (approximately 64 KiB per row). Oversized rows return an explicit error, never a successful partial result.
+- Keep converter config/options immutable after construction. Shared `Convert` and `IdentifyMsg` calls do not change them. `Result` mutation needs external synchronization.
+- The JavaScript VM is created on the first `UseScript` call and reused by that result. Scripts remain trusted code without a timeout.
+
+## Verify Your Mappings
+
+The synthetic [config](examples/mappings/config.json) and [suite](examples/mappings/suite.json) run in tests and CI.
+
+```bash
+hl7conv check -fixtures ./examples/mappings/suite.json
+hl7conv validate-config -config ./examples/mappings/config.json -in input -out output
+hl7conv explain -config ./examples/mappings/config.json -in input -out output -positions
+```
+
+A version-1 suite compares exact bytes, including empty fields and CR/LF:
+
+```json
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "components and aliases",
+      "config": "config.json",
+      "in": "input",
+      "out": "output",
+      "positions": true,
+      "input": "A|one^two\nA|three^four",
+      "expected_output": "X|one|two\rX|three|four",
+      "expected_aliases": {"first": "one"}
+    },
+    {
+      "name": "unknown tag rejected",
+      "config": "config.json",
+      "in": "input",
+      "out": "output",
+      "input": "UNKNOWN|one",
+      "expected_error": "undefined_input_tag"
+    }
+  ]
+}
+```
+
+Paths are relative to the suite file. Specify exactly one `input` / `input_file` and one `expected_output` / `expected_output_file`. Empty output must be an explicit empty string. `expected_aliases` enables aliases and compares the complete map. `expected_error` replaces output/alias expectations. Unknown JSON fields and duplicate case names are rejected.
+
+Failures return a nonzero exit status and show the first differing zero-based byte offset and both lengths, without printing message contents. `-json` emits results on stdout and safe diagnostics on stderr.
+
+Fixture error codes: `invalid_config`, `invalid_link`, `parse_error`, `undefined_input_tag`, `output_tag_not_found`, `component_error`, `row_index_error`, `alias_error`, `field_count_error`. Filesystem errors and internal panics cannot be marked as an expected successful case.
+
+`explain` shows static output expressions, links, defaults and aliases. It does not read a message or predict runtime repetition counts. Use `-json` for structured dependencies.
+
+## CLI Output And Validation
+
+`convert` retains its terminal-friendly final LF by default. Use `-raw` for exact result bytes with only configured separators between rows.
+
+```bash
+hl7conv convert -config ./examples/mappings/config.json -in input -out output -input message.txt -raw
+hl7conv validate-config -config ./examples/config.json
+hl7conv validate-config -config ./examples/config.json -block astm_hbl
+hl7conv explain -config ./examples/mappings/config.json -in input -out output -json
+```
+
+Without a block or pair, `validate-config` validates the schema and every block's semantics. `-block` selects one block; `-in` plus `-out` checks the pair's references. Invalid counts, malformed links and ambiguous types fail validation. Empty templates remain valid parse-only metadata and return an error if conversion attempts to emit them.
+
+All subcommands support `-h`/`--help` with exit status 0. Output write errors are reported. `-json` gives stable error codes and generic messages on stderr without copying the input payload. Human-readable errors may include mapping details; share synthetic data only.
 
 ## Alternatives
 

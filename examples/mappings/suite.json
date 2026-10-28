@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "repeated rows and aliases",
+      "config": "config.json",
+      "in": "input",
+      "out": "output",
+      "positions": true,
+      "input": "A|one^two\nA|three^four",
+      "expected_output": "X|one|two\rX|three|four",
+      "expected_aliases": {
+        "first": "one"
+      }
+    },
+    {
+      "name": "input order",
+      "config": "config.json",
+      "in": "input",
+      "out": "output",
+      "input": "A|one^two",
+      "expected_output": "X|one|two"
+    },
+    {
+      "name": "unknown tag rejected",
+      "config": "config.json",
+      "in": "input",
+      "out": "output",
+      "input": "UNKNOWN|one",
+      "expected_error": "undefined_input_tag"
+    }
+  ]
+}

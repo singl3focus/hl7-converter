@@ -35,10 +35,11 @@ type templateFieldParts struct {
 }
 
 type linkRef struct {
-	Raw           string
-	Tag           string
-	Position      string
-	PositionValue float64
+	Raw       string
+	Tag       string
+	Position  string
+	Field     int
+	Component int
 }
 
 func supportedOptionsSummary() string {
@@ -138,6 +139,9 @@ func extractTemplateLinks(template string) ([]linkRef, error) {
 			return nil, err
 		}
 
+		if ref.Field < 2 {
+			return nil, NewErrInvalidLink(raw)
+		}
 		refs = append(refs, ref)
 		i += end
 	}
@@ -146,67 +150,45 @@ func extractTemplateLinks(template string) ([]linkRef, error) {
 }
 
 func parseLinkRef(link string) (linkRef, error) {
-	elems := strings.Split(link, linkToField)
-	if len(elems) != 2 {
+	tag, position, ok := strings.Cut(link, linkToField)
+	if !ok || strings.Contains(position, linkToField) {
 		return linkRef{}, NewErrInvalidLink(link)
 	}
-
-	tag, pos := elems[0], elems[1]
-	if tag == "" || pos == "" {
+	if tag == "" || position == "" {
 		return linkRef{}, NewErrInvalidLinkElems(link)
 	}
-
-	position, err := strconv.ParseFloat(pos, 64)
+	parts := strings.Split(position, ".")
+	if len(parts) > 2 {
+		return linkRef{}, NewErrInvalidLink(link)
+	}
+	field, err := positivePosition(parts[0])
 	if err != nil {
 		return linkRef{}, NewErrInvalidLink(link)
 	}
-
-	if err := validateLinkPosition(link, position); err != nil {
-		return linkRef{}, err
+	component := 0
+	if len(parts) == 2 {
+		component, err = positivePosition(parts[1])
+		if err != nil {
+			return linkRef{}, NewErrInvalidLink(link)
+		}
 	}
-
-	return linkRef{
-		Raw:           link,
-		Tag:           tag,
-		Position:      pos,
-		PositionValue: position,
-	}, nil
+	return linkRef{Raw: link, Tag: tag, Position: position, Field: field, Component: component}, nil
 }
 
-func validateLinkPosition(link string, position float64) error {
-	if position < 2 {
-		return NewErrInvalidLink(link)
+func positivePosition(value string) (int, error) {
+	if value == "" {
+		return 0, fmt.Errorf("empty position")
 	}
-
-	if isInt(position) {
-		return nil
+	for _, ch := range value {
+		if ch < '0' || ch > '9' {
+			return 0, fmt.Errorf("position must contain decimal digits")
+		}
 	}
-
-	if getTenth(position) < 1 {
-		return NewErrInvalidLink(link)
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("position must be a positive integer")
 	}
-
-	return nil
-}
-
-func fieldIndexFromPosition(link string, position float64) (int, error) {
-	if err := validateLinkPosition(link, position); err != nil {
-		return 0, err
-	}
-
-	return int(position) - 2, nil
-}
-
-func componentIndexFromPosition(link string, position float64) (int, error) {
-	if err := validateLinkPosition(link, position); err != nil {
-		return 0, err
-	}
-
-	if isInt(position) {
-		return -1, nil
-	}
-
-	return getTenth(position) - 1, nil
+	return n, nil
 }
 
 func validateTemplateSyntax(template, fieldSeparator string, fieldsNumber int) error {
@@ -262,7 +244,30 @@ func referencedTemplateLinks(template, fieldSeparator string) ([]linkRef, error)
 }
 
 func validateConversionPair(inputMod, outputMod *Modification) error {
-	for outputTagName, outputTag := range outputMod.TagsInfo.Tags {
+	if err := inputMod.Validate(); err != nil {
+		return fmt.Errorf("input: %w", err)
+	}
+	if err := outputMod.Validate(); err != nil {
+		return fmt.Errorf("output: %w", err)
+	}
+	emitted := make(map[string]bool)
+	for _, name := range outputMod.TagsInfo.Positions {
+		emitted[name] = true
+	}
+	for _, tag := range inputMod.TagsInfo.Tags {
+		emitted[tag.Linked] = true
+	}
+	for _, outputTagName := range sortedKeys(outputMod.TagsInfo.Tags) {
+		outputTag := outputMod.TagsInfo.Tags[outputTagName]
+		if emitted[outputTagName] && outputTag.FieldsNumber < 1 {
+			return fmt.Errorf("output tag %q: fields_number must be positive", outputTagName)
+		}
+		if emitted[outputTagName] && outputTag.Tempalate != "" {
+			fields := strings.Split(outputTag.Tempalate, outputMod.FieldSeparator)
+			if len(fields) != outputTag.FieldsNumber || fields[0] != outputTagName {
+				return fmt.Errorf("output tag %q: template must start with the tag and match fields_number", outputTagName)
+			}
+		}
 		if outputTag.Linked != "" {
 			if _, ok := inputMod.TagsInfo.Tags[outputTag.Linked]; !ok {
 				return fmt.Errorf("output tag %q links to unknown input tag %q", outputTagName, outputTag.Linked)
@@ -284,10 +289,7 @@ func validateConversionPair(inputMod, outputMod *Modification) error {
 				continue
 			}
 
-			fieldIndex, err := fieldIndexFromPosition(ref.Raw, ref.PositionValue)
-			if err != nil {
-				return fmt.Errorf("output tag %q has invalid link %q: %w", outputTagName, ref.Raw, err)
-			}
+			fieldIndex := ref.Field - 2
 
 			if fieldIndex < 0 || fieldIndex >= inputTag.FieldsNumber-1 {
 				return fmt.Errorf(

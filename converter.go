@@ -3,6 +3,7 @@ package hl7converter
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -39,8 +40,14 @@ func WithUsingAliases() OptionFunc {
 }
 
 // NewConverter builds Converter from params and options.
-// Input/Output modifications and separators are taken from params; Converter is ready for one-shot or repeated serial use.
+// Input and output modifications are validated before use. Treat them as immutable after construction.
 func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
+	if p == nil {
+		return nil, fmt.Errorf("%w: nil converter params", ErrInvalidConfig)
+	}
+	if err := validateConversionPair(p.InputModification, p.OutputModification); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
 	converter := &Converter{
 		Input:     p.InputModification,
 		Output:    p.OutputModification,
@@ -48,9 +55,18 @@ func NewConverter(p *ConverterParams, opts ...OptionFunc) (*Converter, error) {
 	}
 
 	for _, opt := range opts {
+		if opt == nil {
+			return nil, fmt.Errorf("%w: nil converter option", ErrInvalidConfig)
+		}
 		opt(converter)
 	}
 
+	if err := validateConversionPair(converter.Input, converter.Output); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+	}
+	if converter.LineSplit == nil {
+		return nil, fmt.Errorf("%w: nil line splitter", ErrInvalidConfig)
+	}
 	return converter, nil
 }
 
@@ -209,15 +225,9 @@ func (c *Converter) convertByInput(fullMsg []byte, state *convertCallState) (*Re
 	for scanner.Scan() {
 		inputRow := scanner.Text()
 
-		var inputTag string
-		for i, ch := range inputRow {
-			if string(ch) == c.Input.FieldSeparator {
-				inputTag = inputRow[:i]
-				if inputTag == "" {
-					return nil, NewErrInputTagNotFound(inputRow)
-				}
-				break
-			}
+		inputTag, _, found := strings.Cut(inputRow, c.Input.FieldSeparator)
+		if !found || inputTag == "" {
+			return nil, NewErrInputTagNotFound(inputRow)
 		}
 
 		if _, exist := c.Input.TagsInfo.Tags[inputTag]; !exist {
@@ -240,6 +250,9 @@ func (c *Converter) convertByInput(fullMsg []byte, state *convertCallState) (*Re
 		rows = append(rows, NewRow(c.Output.FieldSeparator, row))
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, NewErrInvalidParseMsg(err.Error())
+	}
 	return NewResult(c.Output.LineSeparator, rows), nil
 }
 
@@ -278,10 +291,11 @@ func (c *Converter) convertWithPositions(state *convertCallState) (*Result, erro
 func (c *Converter) convertTag(state *convertCallState, outputTag string, outputTagInfo *Tag) ([]*Field, error) {
 	row := strings.Split(outputTagInfo.Tempalate, c.Output.FieldSeparator)
 
-	if outputTagInfo.FieldsNumber != ignoredFieldsNumber {
-		if len(row) != outputTagInfo.FieldsNumber || outputTagInfo.FieldsNumber < 1 {
-			return nil, NewErrWrongFieldsNumber(outputTag, outputTagInfo, len(row))
-		}
+	if outputTagInfo.Tempalate == "" {
+		return nil, fmt.Errorf("%w: output tag %q has no conversion template", ErrInvalidConfig, outputTag)
+	}
+	if len(row) != outputTagInfo.FieldsNumber || outputTagInfo.FieldsNumber < 1 {
+		return nil, NewErrWrongFieldsNumber(outputTag, outputTagInfo, len(row))
 	}
 
 	outputLine, err := c.assembleOutRow(state, outputTagInfo, row)
@@ -418,21 +432,18 @@ func (c *Converter) getValueFromMSGbyLink(state *convertCallState, link string) 
 		return "", NewErrTooBigIndex(state.currentIndex, len(inTagInfo)-1)
 	}
 
-	fieldIndex, err := fieldIndexFromPosition(ref.Raw, ref.PositionValue)
-	if err != nil {
-		return "", err
+	if ref.Field < 2 {
+		return "", NewErrInvalidLink(link)
 	}
+	fieldIndex := ref.Field - 2
 	if fieldIndex < 0 || fieldIndex >= len(inTagInfo[state.currentIndex]) {
 		return "", NewErrInvalidLink(link)
 	}
 
-	if isInt(ref.PositionValue) {
+	if ref.Component == 0 {
 		value = inTagInfo[state.currentIndex][fieldIndex]
 	} else {
-		componentPosIndx, err := componentIndexFromPosition(ref.Raw, ref.PositionValue)
-		if err != nil {
-			return "", err
-		}
+		componentPosIndx := ref.Component - 1
 
 		fieldValue := inTagInfo[state.currentIndex][fieldIndex]
 
@@ -471,5 +482,8 @@ func (c *Converter) ParseInput(msg []byte) (*Result, error) {
 		rows = append(rows, NewRow(modification.FieldSeparator, fields))
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, NewErrInvalidParseMsg(err.Error())
+	}
 	return NewResult(modification.LineSeparator, rows), nil
 }

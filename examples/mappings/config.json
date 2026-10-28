@@ -1,0 +1,48 @@
+{
+  "input": {
+    "component_separator": "^",
+    "component_array_separator": "~",
+    "field_separator": "|",
+    "line_separator": "\n",
+    "types": {
+      "Observation": [
+        [
+          "A"
+        ]
+      ]
+    },
+    "tags_info": {
+      "positions": {
+        "1": "A"
+      },
+      "tags": {
+        "A": {
+          "linked": "X",
+          "fields_number": 2,
+          "template": ""
+        }
+      }
+    }
+  },
+  "output": {
+    "component_separator": "^",
+    "component_array_separator": "~",
+    "field_separator": "|",
+    "line_separator": "\r",
+    "aliases": {
+      "first": "X-2"
+    },
+    "tags_info": {
+      "positions": {
+        "1": "X"
+      },
+      "tags": {
+        "X": {
+          "linked": "A",
+          "fields_number": 3,
+          "template": "X|<A-2.1>|<A-2.2>"
+        }
+      }
+    }
+  }
+}

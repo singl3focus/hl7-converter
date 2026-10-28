@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -46,7 +45,6 @@ func NewResult(ls string, rws []*Row) *Result {
 	return &Result{
 		LineSeparator: ls,
 		Rows:          rws,
-		otto:          otto.New(), // TODO: check mem and cpu usage (need optimizations)
 	}
 }
 
@@ -133,6 +131,9 @@ func (r *Result) UseScript(k constraint, scr any) error {
 	}
 
 	err := r.vmOnce.Do(func() error {
+		if r.otto == nil {
+			r.otto = otto.New()
+		}
 		err := r.otto.Set(string(KeyScript), r)
 		if err != nil {
 			return err
@@ -169,57 +170,37 @@ func (r *Result) FindTag(tag string) (*Row, bool) {
 
 // ApplyAliases resolves aliases to values by link expressions and stores them inside Result.
 func (r *Result) ApplyAliases(a Aliases) error {
-	for name, link := range a {
-		elems := strings.Split(link, linkToField) // parse: Tag - Position
-		if len(elems) != 2 {
-			return NewErrInvalidLink(link)
-		}
-
-		tag, position := elems[0], elems[1]
-		if tag == "" || position == "" {
-			return NewErrInvalidLinkElems(link)
-		}
-
-		pos, err := strconv.ParseFloat(position, 64)
+	resolved := make(Aliases, len(a))
+	for _, name := range sortedKeys(a) {
+		link := a[name]
+		ref, err := parseLinkRef(link)
 		if err != nil {
 			return err
 		}
-
-		row, exist := r.FindTag(tag)
+		row, exist := r.FindTag(ref.Tag)
 		if !exist {
-			return NewError(ErrAliasLinkTagNotExists, true, fmt.Sprintf("name %s link %s tag %s", name, link, tag))
+			return NewError(ErrAliasLinkTagNotExists, true, fmt.Sprintf("name %s link %s", name, link))
 		}
-
-		if isInt(pos) {
-			fieldIndx := int(pos) - 1 // * Danger
-
-			if !row.checkRange(fieldIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("name %s link %s", name, link))
-			}
-
-			f := row.Fields[fieldIndx]
-
-			a[name] = f.Value
+		fieldIndex := ref.Field - 1
+		if !row.checkRange(fieldIndex) {
+			return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("name %s link %s", name, link))
+		}
+		field := row.Fields[fieldIndex]
+		if ref.Component == 0 {
+			resolved[name] = field.Value
 		} else {
-			fieldIndx, componentIndx := int(pos)-1, getTenth(pos)-1 // * Danger
-
-			if !row.checkRange(fieldIndx) {
+			components := field.Components()
+			if !components.checkRange(ref.Component - 1) {
 				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("name %s link %s", name, link))
 			}
-
-			f := row.Fields[fieldIndx]
-
-			comp := f.Components()
-			if !comp.checkRange(componentIndx) {
-				return NewError(ErrAliasInvalidLinkPosition, true, fmt.Sprintf("invalid component pos, name %s link %s", name, link))
-			}
-
-			a[name] = comp[componentIndx]
+			resolved[name] = components[ref.Component-1]
 		}
 	}
-
+	// Preserve the legacy map-mutation behavior, but only commit after every link succeeds.
+	for name, value := range resolved {
+		a[name] = value
+	}
 	r.aliases = a
-
 	return nil
 }
 

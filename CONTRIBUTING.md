@@ -10,12 +10,14 @@ Thanks for considering a contribution. This project is a small, focused mapping 
 
 ## Development Setup
 
-You need Go 1.22 or newer.
+Minimum compatibility is Go 1.22.3. Use a supported Go release for development and release binaries; CI also checks 1.26.x. The go.mod minimum does not choose the release compiler.
 
 ```bash
 go mod download
 go test ./...
 go test -race ./...
+go vet ./...
+go run ./cmd/hl7conv check -fixtures ./examples/mappings/suite.json
 ```
 
 Optional benchmark run:
@@ -71,4 +73,4 @@ Use the issue templates in `.github/ISSUE_TEMPLATE/`:
 - feature request
 - usage question
 
-Please include a minimal reproducible config snippet and the input message that triggers the behaviour.
+Include a minimal config, synthetic input and expected output (or a mapping fixture), your current workaround and version/toolchain. Do not publish real patient data.
